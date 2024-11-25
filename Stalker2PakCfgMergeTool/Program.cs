@@ -41,6 +41,14 @@ public class Program
 
         var mergedPakFiles = await pakMerger.MergePaksWithConflicts();
 
+        if (mergedPakFiles.Count == 0)
+        {
+            Console.WriteLine("No conflicts found.");
+            Console.WriteLine("Press any key to exit...");
+            Console.ReadLine();
+            return;
+        }
+
         var filePrefix = "zzz";
 
         var dirInfo = new DirectoryInfo(modsPath);

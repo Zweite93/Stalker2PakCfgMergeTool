@@ -1,6 +1,3 @@
 [submodule "NetPak"]
 	path = NetPak
 	url = https://github.com/CrystalFerrai/NetPak.git
-[submodule "AESDumpster"]
-	path = AESDumpster
-	url = https://github.com/GHFear/AESDumpster.git
