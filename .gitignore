@@ -261,3 +261,4 @@ FakesAssemblies/
 
 # Visual Studio 6 workspace options file
 *.opt
+Stalker2PakCfgMergeTool/Properties/launchSettings.json
