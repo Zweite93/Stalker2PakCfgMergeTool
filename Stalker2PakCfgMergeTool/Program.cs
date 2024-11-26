@@ -14,7 +14,7 @@ public class Program
     private const string ModsDirectoryName = "~mods";
     private const string ReferencePakName = "pakchunk0-Windows.pak";
     private const string Win64ExeFilePath = "Stalker2/Binaries/Win64/Stalker2-Win64-Shipping.exe";
-    private const string WinGdkExeFilePath = "Stalker2/Binaries/WinGDK/Stalker2-WinGDK-Editor.exe";
+    private const string WinGdkExeFilePath = "Content/Stalker2/Binaries/WinGDK/Stalker2-WinGDK-Editor.exe";
 
     private static string? _exeFilePath;
 
