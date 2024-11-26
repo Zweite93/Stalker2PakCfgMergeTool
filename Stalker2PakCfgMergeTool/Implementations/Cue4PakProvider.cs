@@ -81,6 +81,7 @@ public class Cue4PakProvider : IPakProvider
 
     public void Dispose()
     {
+        _provider.UnloadAllVfs();
         _provider.Dispose();
     }
 
@@ -106,5 +107,18 @@ public class Cue4PakProvider : IPakProvider
         }
 
         return await gameFile.ReadAsync();
+    }
+
+    public static async Task<bool> TestAesKey(string aesKey, string pakDir)
+    {
+        var testKeyIsValid = false;
+
+        using var provider = new DefaultFileProvider(pakDir, SearchOption.TopDirectoryOnly, false, new VersionContainer(EGame.GAME_UE5_1));
+        provider.Initialize();
+
+        await provider.SubmitKeyAsync(new FGuid(), new FAesKey(aesKey));
+        testKeyIsValid = provider.MountedVfs.Count > 0;
+
+        return testKeyIsValid;
     }
 }

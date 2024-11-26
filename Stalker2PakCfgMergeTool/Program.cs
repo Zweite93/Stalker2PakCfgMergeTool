@@ -17,10 +17,11 @@ public class Program
     public static async Task Main(string[] args)
     {
         var gamePath = args.FirstOrDefault() ?? "";
+        var aesKey = args.Skip(1).FirstOrDefault();
 
         try
         {
-            await Execute(gamePath);
+            await Execute(gamePath, aesKey);
         }
         catch (Exception e)
         {
@@ -32,7 +33,7 @@ public class Program
         }
     }
 
-    private static async Task Execute(string gamePath)
+    private static async Task Execute(string gamePath, string? aesKey)
     {
         if (string.IsNullOrEmpty(gamePath) || !Directory.Exists(gamePath))
         {
@@ -51,17 +52,27 @@ public class Program
         var exeFilePath = GetExeFilePath(gamePath);
         var paksDirectory = Path.Combine(gamePath, PaksDirectory);
 
-        var aesKey = AesKeyGetter.Get(Path.Combine(gamePath, exeFilePath)) ?? throw new Exception("AES key not found");
+        aesKey = await GetValidAesKey(aesKey, exeFilePath, gamePath, paksDirectory);
 
-        Console.WriteLine($"\nYour AES key: {aesKey}\n");
+        if (aesKey == null)
+        {
+            Console.WriteLine("Could not find valid AES key. You can try getting your oun AES key and passing it as a second argument after game root path.");
+            Console.WriteLine("Press any key to exit...");
+            Console.ReadLine();
+            return;
+        }
+
+        Console.WriteLine("AES key is valid.\n");
 
         var modsPath = Path.Combine(gamePath, paksDirectory, ModsDirectoryName);
 
-        using var pakMerger = new PakMerger(
+        var pakMerger = new PakMerger(
             new Cue4PakProvider(modsPath, aesKey),
             new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName));
 
         var mergedPakFiles = await pakMerger.MergePaksWithConflicts();
+
+        pakMerger.Dispose();
 
         if (mergedPakFiles.Count == 0)
         {
@@ -162,5 +173,44 @@ public class Program
         Console.WriteLine("Example: Stalker2PakCfgMergeTool.exe \"D:\\Games\\Steam Games\\steamapps\\common\\S.T.A.L.K.E.R. 2 Heart of Chornobyl\"\n");
         Console.WriteLine("Press any key to exit...");
         Console.ReadKey();
+    }
+
+    private static async Task<string?> GetValidAesKey(string? aesKey, string exeFilePath, string gamePath, string paksDirectory)
+    {
+        const string defaultAecKey = "33A604DF49A07FFD4A4C919962161F5C35A134D37EFA98DB37A34F6450D7D386";
+
+        if (!string.IsNullOrEmpty(aesKey))
+        {
+            if (await Cue4PakProvider.TestAesKey(aesKey, Path.Combine(gamePath, paksDirectory)))
+            {
+                return aesKey;
+            }
+
+            Console.WriteLine("Provided AES key is invalid. Trying the default AES key.\n");
+        }
+
+        if (await Cue4PakProvider.TestAesKey(defaultAecKey, Path.Combine(gamePath, paksDirectory)))
+        {
+            return defaultAecKey;
+        }
+
+        Console.WriteLine("Default AES key is invalid. Trying to grab AES key from game's executable.\n");
+
+        aesKey = AesKeyGetter.Get(Path.Combine(gamePath, exeFilePath)) ?? throw new Exception("AES key not found");
+
+        if (string.IsNullOrEmpty(aesKey))
+        {
+            Console.WriteLine("AES key not found in game's executable.\n");
+            return null;
+        }
+
+        if (await Cue4PakProvider.TestAesKey(aesKey, Path.Combine(gamePath, paksDirectory)))
+        {
+            return aesKey;
+        }
+
+        Console.WriteLine("AES key from game's executable is invalid.\n");
+
+        return null;
     }
 }
