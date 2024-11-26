@@ -17,11 +17,37 @@ public class Program
     private const string WinGdkExeFilePath = "Content/Stalker2/Binaries/WinGDK/Stalker2-WinGDK-Editor.exe";
 
     private static string? _exeFilePath;
+    private static string? _paksDirectory;
 
     public static async Task Main(string[] args)
     {
         var gamePath = args.FirstOrDefault() ?? "";
 
+        try
+        {
+            await Execute(gamePath);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine("Unexpected error occurred:");
+            Console.WriteLine(e.Message);
+            Console.WriteLine();
+            Console.WriteLine("Press any key to exit...");
+            Console.ReadKey();
+        }
+    }
+
+    private static void ShowInvalidPathMessage()
+    {
+        Console.WriteLine("The game executable file not found in the provided path.");
+        Console.WriteLine("Please provide the path to the game folder as the first argument.\n");
+        Console.WriteLine("Example: Stalker2PakCfgMergeTool.exe \"D:\\Games\\Steam Games\\steamapps\\common\\S.T.A.L.K.E.R. 2 Heart of Chornobyl\"\n");
+        Console.WriteLine("Press any key to exit...");
+        Console.ReadKey();
+    }
+
+    private static async Task Execute(string gamePath)
+    {
         if (string.IsNullOrEmpty(gamePath) || !Directory.Exists(gamePath))
         {
             ShowInvalidPathMessage();
@@ -31,10 +57,12 @@ public class Program
         if (File.Exists(Path.Combine(gamePath, Win64ExeFilePath)))
         {
             _exeFilePath = Win64ExeFilePath;
+            _paksDirectory = PaksDirectory;
         }
         else if (File.Exists(Path.Combine(gamePath, WinGdkExeFilePath)))
         {
             _exeFilePath = WinGdkExeFilePath;
+            _paksDirectory = Path.Combine("Content", PaksDirectory);
         }
         else
         {
@@ -47,11 +75,11 @@ public class Program
 
         Console.WriteLine($"\nYour AES key: {aesKey}\n");
 
-        var modsPath = Path.Combine(gamePath, PaksDirectory, ModsDirectoryName);
+        var modsPath = Path.Combine(gamePath, _paksDirectory, ModsDirectoryName);
 
         using var pakMerger = new PakMerger(
             new Cue4PakProvider(modsPath, aesKey),
-            new Cue4PakProvider(Path.Combine(gamePath, PaksDirectory), aesKey, ReferencePakName));
+            new Cue4PakProvider(Path.Combine(gamePath, _paksDirectory), aesKey, ReferencePakName));
 
         var mergedPakFiles = await pakMerger.MergePaksWithConflicts();
 
@@ -81,7 +109,7 @@ public class Program
 
         var currentDate = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
         var mergedPakName = $"{filePrefix}_{Constants.MergedPakBaseName}_{currentDate}_P.pak";
-        var mergedPakPath = Path.Combine(gamePath, PaksDirectory, ModsDirectoryName, mergedPakName);
+        var mergedPakPath = Path.Combine(gamePath, _paksDirectory, ModsDirectoryName, mergedPakName);
 
         var pakCreator = new NetPakCreator();
         pakCreator.CreatePak(Constants.MergedPakBaseName, mergedPakPath, mergedPakFiles);
@@ -100,14 +128,5 @@ public class Program
             };
             Process.Start(processStartInfo);
         }
-    }
-
-    private static void ShowInvalidPathMessage()
-    {
-        Console.WriteLine("The game executable file not found in the provided path.");
-        Console.WriteLine("Please provide the path to the game folder as the first argument.\n");
-        Console.WriteLine("Example: Stalker2PakCfgMergeTool.exe \"D:\\Games\\Steam Games\\steamapps\\common\\S.T.A.L.K.E.R. 2 Heart of Chornobyl\"\n");
-        Console.WriteLine("Press any key to exit...");
-        Console.ReadKey();
     }
 }
