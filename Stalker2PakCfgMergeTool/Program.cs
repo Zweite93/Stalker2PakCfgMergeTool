@@ -66,7 +66,7 @@ public class Program
         }
 
         var currentDate = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-        var mergedPakName = $"{filePrefix}_{Constants.MergedPakBaseName}_{currentDate}.pak";
+        var mergedPakName = $"{filePrefix}_{Constants.MergedPakBaseName}_{currentDate}_P.pak";
         var mergedPakPath = Path.Combine(gamePath, PaksDirectory, ModsDirectoryName, mergedPakName);
 
         var pakCreator = new NetPakCreator();
