@@ -85,16 +85,27 @@ public class Program
         var filePrefix = "zzz";
 
         var dirInfo = new DirectoryInfo(modsPath);
+
         var lastModPakFileName = dirInfo.GetFiles("*.pak")
             .Select(f => f.Name)
             .Where(name => !name.Contains(Constants.MergedPakBaseName))
             .Order()
-            .LastOrDefault();
+            .LastOrDefault()?
+            .ToLower();
 
-        if (!string.IsNullOrEmpty(lastModPakFileName))
+        var lastModFolderName = dirInfo.GetDirectories()
+            .Select(di => di.Name)
+            .Where(name => !name.Contains(Constants.MergedPakBaseName))
+            .Order()
+            .LastOrDefault()?
+            .ToLower();
+
+        if (!string.IsNullOrEmpty(lastModPakFileName) || !string.IsNullOrEmpty(lastModFolderName))
         {
-            var lastModPakName = Path.GetFileNameWithoutExtension(lastModPakFileName);
-            var zCount = lastModPakName.TakeWhile(c => c == 'z').Count();
+            var fileZCount = lastModPakFileName?.TakeWhile(c => c == 'z').Count();
+            var folderZCount = lastModFolderName?.TakeWhile(c => c == 'z').Count();
+            var zCount = Math.Max(fileZCount ?? 0, folderZCount ?? 0);
+
             filePrefix = new string('z', zCount + 1);
         }
 
