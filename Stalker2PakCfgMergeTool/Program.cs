@@ -1,4 +1,5 @@
-﻿using Stalker2PakCfgMergeTool.Implementations;
+﻿using System.Diagnostics;
+using Stalker2PakCfgMergeTool.Implementations;
 
 namespace Stalker2PakCfgMergeTool;
 
@@ -71,9 +72,20 @@ public class Program
 
         var pakCreator = new NetPakCreator();
         pakCreator.CreatePak(Constants.MergedPakBaseName, mergedPakPath, mergedPakFiles);
-        ;
 
-        Console.WriteLine("Press any key to exit...");
-        Console.ReadLine();
+        Console.WriteLine($"Merge pak created: {mergedPakName}\n");
+
+        Console.WriteLine("Open up the summary.html file in your browser to see the merge results? [y/n]\n");
+
+        if (Console.ReadKey().KeyChar == 'y')
+        {
+            var summaryFilePath = Path.Combine(Directory.GetCurrentDirectory(), "diff.html");
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = summaryFilePath,
+                UseShellExecute = true
+            };
+            Process.Start(processStartInfo);
+        }
     }
 }

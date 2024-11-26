@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.RegularExpressions;
 using DiffMatchPatch;
 using Stalker2PakCfgMergeTool.Entities;
 using Stalker2PakCfgMergeTool.Interfaces;
@@ -7,6 +8,8 @@ namespace Stalker2PakCfgMergeTool;
 
 public class PakMerger : IDisposable
 {
+    private const string DiffHtmlFileName = "diff.html";
+
     private readonly IPakProvider _pakProvider;
     private readonly IPakProvider _referencePakProvider;
 
@@ -66,18 +69,34 @@ public class PakMerger : IDisposable
     private async Task<List<PakFileWithContent>> MergePaksWithConflicts(List<FileConflict> conflicts)
     {
         var pakFiles = new List<PakFileWithContent>();
-        foreach (var conflict in conflicts)
-        {
+        var diffHtmlList = new List<string>();
 
+        foreach (var conflict in conflicts.OrderBy(c => c.FileName))
+        {
             try
             {
-                pakFiles.Add(await MergePakWithConflicts(conflict));
+                var (pak, diffHtml) = await MergePakWithConflicts(conflict);
+
+                pakFiles.Add(pak);
+                diffHtmlList.Add(diffHtml);
             }
             catch (Exception e)
             {
 
                 Console.WriteLine($"Error merging {conflict.FilePath}: {e.Message}\n");
             }
+        }
+
+        if (diffHtmlList.Count > 0)
+        {
+            var diffHtml = $"Differences from original game file:<br><br>{string.Join("\n", diffHtmlList)}";
+
+            if (File.Exists(DiffHtmlFileName))
+            {
+                File.Delete(DiffHtmlFileName);
+            }
+
+            await File.WriteAllTextAsync(DiffHtmlFileName, diffHtml);
         }
 
         return pakFiles;
@@ -89,7 +108,7 @@ public class PakMerger : IDisposable
         _referencePakProvider.Dispose();
     }
 
-    private async Task<PakFileWithContent> MergePakWithConflicts(FileConflict conflict)
+    private async Task<(PakFileWithContent pak, string diffHtlm)> MergePakWithConflicts(FileConflict conflict)
     {
         // Sort conflict with by pak name to have consistent output
         conflict.ConflictWith = conflict.ConflictWith.OrderBy(fc => fc.PakName).ToList();
@@ -143,38 +162,46 @@ public class PakMerger : IDisposable
         var patchesResult = dmp.patch_apply(patches, originalText);
         var textResult = (string)patchesResult[0];
 
-        var originalLines = originalText.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
-        var modifiedLines = textResult.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
+        Console.WriteLine("Merged\n");
 
-        var maxLength = Math.Max(originalLines.Length, modifiedLines.Length);
+        var diffsSummary = dmp.diff_main(originalText, textResult);
+        dmp.diff_cleanupSemantic(diffsSummary);
 
-        if (maxLength > 0)
-        {
-            Console.WriteLine("Differences from original game file:\n");
-        }
+        var diffHtml = dmp.diff_prettyHtml(diffsSummary);
+        var diffHtmlChangesOnly = string.Join(string.Empty, GetChangedLinesFromDiffHtml(diffHtml));
+        diffHtml = $"<br>- File: {conflict.FileName}{(diffHtmlChangesOnly.StartsWith("<br>") ? string.Empty : "<br>")}<br>{diffHtmlChangesOnly}<br><br>";
 
-        for (var i = 0; i < maxLength; i++)
-        {
-            var originalLine = i < originalLines.Length ? originalLines[i] : string.Empty;
-            var mergedLine = i < modifiedLines.Length ? modifiedLines[i] : string.Empty;
-
-            if (originalLine == mergedLine)
-            {
-                continue;
-            }
-
-            Console.WriteLine($"   Line {i + 1}:");
-            Console.WriteLine($"      Original: {originalLine.Trim()}");
-            Console.WriteLine($"      Modified: {mergedLine.Trim()}");
-            Console.WriteLine();
-        }
-
-        return new PakFileWithContent
+        return (new PakFileWithContent
         {
             PakName = "merged",
             FileName = Path.GetFileName(conflict.FilePath),
             FilePath = conflict.FilePath,
             Content = Encoding.UTF8.GetBytes(textResult)
-        };
+        }, diffHtml);
+    }
+
+    private static List<string> GetChangedLinesFromDiffHtml(string diffHtml)
+    {
+        var changedLines = new List<string>();
+
+        // Split the diffHtml into lines
+        var lines = diffHtml.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
+
+        // Regular expressions to match ins, del, and span tags with diffmod class
+        var insRegex = new Regex(@"<ins[^>]*>.*?<\/ins>", RegexOptions.Singleline);
+        var delRegex = new Regex(@"<del[^>]*>.*?<\/del>", RegexOptions.Singleline);
+        var modRegex = new Regex(@"<span[^>]*class=""diffmod""[^>]*>.*?<\/span>", RegexOptions.Singleline);
+
+        // Search for changes in each line
+        foreach (var line in lines)
+        {
+            if (insRegex.IsMatch(line) || delRegex.IsMatch(line) || modRegex.IsMatch(line))
+            {
+                var cleanedLine = line.Replace("&para;", string.Empty);
+                changedLines.Add(cleanedLine);
+            }
+        }
+
+        return changedLines;
     }
 }
