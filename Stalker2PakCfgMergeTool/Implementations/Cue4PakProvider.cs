@@ -17,7 +17,7 @@ public class Cue4PakProvider : IPakProvider
     public Cue4PakProvider(string pakDir, string aesKey, string? pakName = null)
     {
         _pakName = pakName;
-        _provider = new DefaultFileProvider(pakDir, SearchOption.AllDirectories, false, new VersionContainer(EGame.GAME_UE5_1));
+        _provider = new DefaultFileProvider(pakDir, pakName == null ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly, false, new VersionContainer(EGame.GAME_UE5_1));
         _provider.Initialize();
         _provider.SubmitKey(new FGuid(), new FAesKey(aesKey));
     }
