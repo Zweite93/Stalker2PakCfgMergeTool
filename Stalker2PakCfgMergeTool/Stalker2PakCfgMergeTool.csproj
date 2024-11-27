@@ -15,8 +15,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="ViewTemplates\DiffTemplate.html" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="ViewTemplates\DiffTemplate.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="CUE4Parse" Version="1.1.1" />
     <PackageReference Include="DiffMatchPatch" Version="4.0.0" />
+    <PackageReference Include="DiffPlex" Version="1.7.2" />
   </ItemGroup>
 
   <ItemGroup>

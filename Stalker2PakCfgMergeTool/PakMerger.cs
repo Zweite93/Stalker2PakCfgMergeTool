@@ -1,6 +1,8 @@
 ﻿using System.Text;
-using System.Text.RegularExpressions;
 using DiffMatchPatch;
+using DiffPlex.DiffBuilder.Model;
+using DiffPlex.DiffBuilder;
+using DiffPlex;
 using Stalker2PakCfgMergeTool.Entities;
 using Stalker2PakCfgMergeTool.Interfaces;
 
@@ -69,16 +71,16 @@ public class PakMerger : IDisposable
     private async Task<List<PakFileWithContent>> MergePaksWithConflicts(List<FileConflict> conflicts)
     {
         var pakFiles = new List<PakFileWithContent>();
-        var diffHtmlList = new List<string>();
+        var diffHtmlList = new List<(string fileName, string diffHtml)>();
 
         foreach (var conflict in conflicts.OrderBy(c => c.FileName))
         {
             try
             {
-                var (pak, diffHtml) = await MergePakWithConflicts(conflict);
+                var (pak, diffHtmlWithFileName) = await MergePakWithConflicts(conflict);
 
                 pakFiles.Add(pak);
-                diffHtmlList.Add(diffHtml);
+                diffHtmlList.Add(diffHtmlWithFileName);
             }
             catch (Exception e)
             {
@@ -87,17 +89,21 @@ public class PakMerger : IDisposable
             }
         }
 
-        if (diffHtmlList.Count > 0)
+        if (diffHtmlList.Count == 0)
         {
-            var diffHtml = $"Differences from original game file:<br><br>{string.Join("\n", diffHtmlList)}";
-
-            if (File.Exists(DiffHtmlFileName))
-            {
-                File.Delete(DiffHtmlFileName);
-            }
-
-            await File.WriteAllTextAsync(DiffHtmlFileName, diffHtml);
+            return pakFiles;
         }
+
+
+        if (File.Exists(DiffHtmlFileName))
+        {
+            File.Delete(DiffHtmlFileName);
+        }
+
+        var diffHtml = GenerateTabsHtml(diffHtmlList.Select(diffHtmlWithFileName => (diffHtmlWithFileName.fileName, diffHtmlWithFileName.diffHtml)).ToList());
+
+        await File.WriteAllTextAsync(DiffHtmlFileName, diffHtml);
+
 
         return pakFiles;
     }
@@ -108,7 +114,7 @@ public class PakMerger : IDisposable
         _referencePakProvider.Dispose();
     }
 
-    private async Task<(PakFileWithContent pak, string diffHtlm)> MergePakWithConflicts(FileConflict conflict)
+    private async Task<(PakFileWithContent pak, (string fileName, string diffHtlm))> MergePakWithConflicts(FileConflict conflict)
     {
         // Sort conflict with by pak name to have consistent output
         conflict.ConflictWith = conflict.ConflictWith.OrderBy(fc => fc.PakName).ToList();
@@ -164,12 +170,7 @@ public class PakMerger : IDisposable
 
         Console.WriteLine("Merged\n");
 
-        var diffsSummary = dmp.diff_main(originalText, textResult);
-        dmp.diff_cleanupSemantic(diffsSummary);
-
-        var diffHtml = dmp.diff_prettyHtml(diffsSummary);
-        var diffHtmlChangesOnly = string.Join(string.Empty, GetChangedLinesFromDiffHtml(diffHtml));
-        diffHtml = $"<br>- File: {conflict.FileName}{(diffHtmlChangesOnly.StartsWith("<br>") ? string.Empty : "<br>")}<br>{diffHtmlChangesOnly}<br><br>";
+        var diffHtml = GenerateSideBySideDiffHtml(originalText, textResult, conflict.FileName, conflict.ConflictWith.Select(cw => cw.PakName).ToList());
 
         return (new PakFileWithContent
         {
@@ -177,31 +178,120 @@ public class PakMerger : IDisposable
             FileName = Path.GetFileName(conflict.FilePath),
             FilePath = conflict.FilePath,
             Content = Encoding.UTF8.GetBytes(textResult)
-        }, diffHtml);
+        }, (conflict.FileName, diffHtml));
     }
 
-    private static List<string> GetChangedLinesFromDiffHtml(string diffHtml)
+    private static string GenerateTabsHtml(List<(string fileName, string diffHtml)> diffHtmlList)
     {
-        var changedLines = new List<string>();
+        var templatePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ViewTemplates", "DiffTemplate.html");
+        var templateContent = File.ReadAllText(templatePath);
 
-        // Split the diffHtml into lines
-        var lines = diffHtml.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
-
-        // Regular expressions to match ins, del, and span tags with diffmod class
-        var insRegex = new Regex(@"<ins[^>]*>.*?<\/ins>", RegexOptions.Singleline);
-        var delRegex = new Regex(@"<del[^>]*>.*?<\/del>", RegexOptions.Singleline);
-        var modRegex = new Regex(@"<span[^>]*class=""diffmod""[^>]*>.*?<\/span>", RegexOptions.Singleline);
-
-        // Search for changes in each line
-        foreach (var line in lines)
+        var tabsScript = new StringBuilder();
+        foreach (var (fileName, diffHtml) in diffHtmlList)
         {
-            if (insRegex.IsMatch(line) || delRegex.IsMatch(line) || modRegex.IsMatch(line))
+            tabsScript.AppendLine($"addTab('{fileName}', `{diffHtml}`);");
+        }
+
+        var finalHtml = templateContent.Replace("<script>", $"<script>{tabsScript}");
+        return finalHtml;
+    }
+
+    public static string GenerateSideBySideDiffHtml(string oldText, string newText, string fileName, List<string> modNames)
+    {
+        var diffBuilder = new SideBySideDiffBuilder(new Differ());
+        var diffModel = diffBuilder.BuildDiffModel(oldText, newText);
+
+        var htmlBuilder = new StringBuilder();
+        htmlBuilder.Append($"<h2>File: {fileName}</h2>");
+        htmlBuilder.Append("<h3>Mods used in merge:</h3><ul>");
+        foreach (var modName in modNames)
+        {
+            htmlBuilder.Append($"<li>{modName}</li>");
+        }
+        htmlBuilder.Append("</ul>");
+        htmlBuilder.Append("<table>");
+        htmlBuilder.Append("<tr><th>Line</th><th>Original</th><th>Line</th><th>Modified</th></tr>");
+
+        var lineNumber = 1;
+        var unchangedCount = 0;
+        var inUnchangedBlock = false;
+        var unchangedClass = "";
+
+        foreach (var diffPiece in diffModel.OldText.Lines.Zip(diffModel.NewText.Lines, (oldLine, newLine) => new { oldLine, newLine }))
+        {
+            if (diffPiece.oldLine.Type == ChangeType.Unchanged && diffPiece.newLine.Type == ChangeType.Unchanged)
             {
-                var cleanedLine = line.Replace("&para;", string.Empty);
-                changedLines.Add(cleanedLine);
+                unchangedCount++;
+                switch (unchangedCount)
+                {
+                    case 5:
+                        unchangedClass = $"unchanged-{lineNumber}";
+                        htmlBuilder.Append($"<tr><td colspan='4' style='text-align:center;' id='placeholder-{unchangedClass}' class='expand-collapse' onclick='toggleUnchanged(\"{unchangedClass}\")'>Some unchanged lines are hidden, click to expand</td></tr>");
+                        inUnchangedBlock = true;
+                        break;
+                    case > 5:
+                        htmlBuilder.Append($"<tr class='{unchangedClass} unchanged' style='display:none;'><td class='line-number'>{lineNumber}</td><td class='truncate'>{diffPiece.oldLine.Text}</td><td class='line-number'>{lineNumber}</td><td class='truncate'>{diffPiece.newLine.Text}</td></tr>");
+                        break;
+                    default:
+                        htmlBuilder.Append($"<tr><td class='line-number'>{lineNumber}</td><td class='truncate'>{diffPiece.oldLine.Text}</td><td class='line-number'>{lineNumber}</td><td class='truncate'>{diffPiece.newLine.Text}</td></tr>");
+                        break;
+                }
+            }
+            else
+            {
+                if (inUnchangedBlock)
+                {
+                    inUnchangedBlock = false;
+                    unchangedCount = 0;
+                }
+
+                htmlBuilder.Append("<tr>");
+                htmlBuilder.Append($"<td class='line-number'>{lineNumber}</td><td style='background-color:{GetBackgroundColor(diffPiece.oldLine.Type)}'>{HighlightChanges(diffPiece.oldLine.Text, diffPiece.oldLine.Type)}</td>");
+                htmlBuilder.Append($"<td class='line-number'>{lineNumber}</td><td style='background-color:{GetBackgroundColor(diffPiece.newLine.Type)}'>{HighlightChanges(diffPiece.newLine.Text, diffPiece.newLine.Type)}</td>");
+                htmlBuilder.Append("</tr>");
+            }
+            lineNumber++;
+        }
+
+        htmlBuilder.Append("</table>");
+        return htmlBuilder.ToString();
+    }
+
+    private static string GetBackgroundColor(ChangeType changeType)
+    {
+        return changeType switch
+        {
+            ChangeType.Inserted => "#d4fcbc",
+            ChangeType.Deleted => "#fbb6c2",
+            ChangeType.Modified => "#ffe4b5",
+            _ => "white",
+        };
+    }
+
+    private static string HighlightChanges(string text, ChangeType changeType)
+    {
+        if (changeType != ChangeType.Modified)
+        {
+            return text;
+        }
+
+        var diffBuilder = new InlineDiffBuilder(new Differ());
+        var diffModel = diffBuilder.BuildDiffModel(text, text);
+        var highlightedText = new StringBuilder();
+
+        foreach (var line in diffModel.Lines)
+        {
+            if (line.Type == ChangeType.Modified)
+            {
+                highlightedText.Append($"<span style='background-color:#ffe4b5;'>{line.Text}</span>");
+            }
+            else
+            {
+                highlightedText.Append(line.Text);
             }
         }
 
-        return changedLines;
+        return highlightedText.ToString();
+
     }
 }

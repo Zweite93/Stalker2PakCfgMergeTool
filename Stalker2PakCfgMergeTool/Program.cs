@@ -121,9 +121,9 @@ public class Program
         var pakCreator = new NetPakCreator();
         pakCreator.CreatePak(Constants.MergedPakBaseName, mergedPakPath, mergedPakFiles);
 
-        Console.WriteLine($"Merge pak created: {mergedPakName}\n");
+        Console.WriteLine($"Merge pak created: {mergedPakName}\n\n");
 
-        Console.WriteLine("Open up the summary.html file in your browser to see the merge results? [y/n]\n");
+        Console.WriteLine("Open up the Diff Viewer? [y/n]\n");
 
         if (Console.ReadKey().KeyChar == 'y')
         {
@@ -197,7 +197,7 @@ public class Program
 
         Console.WriteLine("Default AES key is invalid. Trying to grab AES key from game's executable.\n");
 
-        aesKey = AesKeyGetter.Get(Path.Combine(gamePath, exeFilePath)) ?? throw new Exception("AES key not found");
+        aesKey = AesKeyGetter.Get(Path.Combine(gamePath, exeFilePath));
 
         if (string.IsNullOrEmpty(aesKey))
         {
