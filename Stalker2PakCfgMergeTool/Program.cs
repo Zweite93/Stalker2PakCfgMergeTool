@@ -28,8 +28,7 @@ public class Program
             Console.WriteLine("Unexpected error occurred:");
             Console.WriteLine(e.Message);
             Console.WriteLine();
-            Console.WriteLine("Press any key to exit...");
-            Console.ReadKey();
+            PressAnyKeyToExit();
         }
     }
 
@@ -57,14 +56,21 @@ public class Program
         if (aesKey == null)
         {
             Console.WriteLine("Could not find valid AES key. You can try getting your oun AES key and passing it as a second argument after game root path.");
-            Console.WriteLine("Press any key to exit...");
-            Console.ReadLine();
+            PressAnyKeyToExit();
             return;
         }
 
         Console.WriteLine("AES key is valid.\n");
 
         var modsPath = Path.Combine(gamePath, paksDirectory, ModsDirectoryName);
+        Console.WriteLine($"Mods path: {modsPath}\n");
+
+        if (!Directory.Exists(modsPath))
+        {
+            Console.WriteLine("Mods folder does not exist. What are you trying to merge then?\n");
+            PressAnyKeyToExit();
+            return;
+        }
 
         var pakMerger = new PakMerger(
             new Cue4PakProvider(modsPath, aesKey),
@@ -77,8 +83,7 @@ public class Program
         if (mergedPakFiles.Count == 0)
         {
             Console.WriteLine("No conflicts found.");
-            Console.WriteLine("Press any key to exit...");
-            Console.ReadLine();
+            PressAnyKeyToExit();
             return;
         }
 
@@ -168,8 +173,7 @@ public class Program
         Console.WriteLine("The game executable file not found in the provided path.");
         Console.WriteLine("Please provide the path to the game folder as the first argument.\n");
         Console.WriteLine("Example: Stalker2PakCfgMergeTool.exe \"D:\\Games\\Steam Games\\steamapps\\common\\S.T.A.L.K.E.R. 2 Heart of Chornobyl\"\n");
-        Console.WriteLine("Press any key to exit...");
-        Console.ReadKey();
+        PressAnyKeyToExit();
     }
 
     private static async Task<string?> GetValidAesKey(string? aesKey, string exeFilePath, string gamePath, string paksDirectory)
@@ -209,5 +213,11 @@ public class Program
         Console.WriteLine("AES key from game's executable is invalid.\n");
 
         return null;
+    }
+
+    private static void PressAnyKeyToExit()
+    {
+        Console.WriteLine("Press any key to exit...");
+        Console.ReadKey();
     }
 }
