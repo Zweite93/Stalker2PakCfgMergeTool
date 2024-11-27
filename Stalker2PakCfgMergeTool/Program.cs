@@ -134,47 +134,33 @@ public class Program
 
     private static string GetExeFilePath(string path)
     {
-        const string win64 = "Win64";
-        const string winGdk = "WinGDK";
-        const string binariesDirectory = "Stalker2/Binaries";
-        const string shipping = "Shipping";
-        const string editor = "Editor";
+        path = Path.Combine(path, "Stalker2/Binaries");
 
-        path = Path.Combine(path, binariesDirectory);
+        // some users reported that they have both Win64 and WinGDK folders, find exe file in either one
+        var exeFile = FindExe("Win64") ?? FindExe("WinGDK") ?? throw new Exception($"The game executable file not found. Provided binaries folder: {path}");
 
-        string win;
-        var directories = new DirectoryInfo(path).GetDirectories().Select(di => di.Name).ToList();
+        return exeFile;
 
-        if (directories.Contains(win64))
+        string? FindExe(string winVersion)
         {
-            win = win64;
-        }
-        else if (directories.Contains(winGdk))
-        {
-            win = winGdk;
-        }
-        else
-        {
-            throw new Exception($"{path} path does not contain Win64 or WinGDK directory.");
-        }
+            var shippingExe = $"Stalker2-{winVersion}-Shipping.exe";
+            var editorExe = $"Stalker2-{winVersion}-Editor.exe";
 
-        path = Path.Combine(path, win);
-        var exeFile = $"Stalker2-{win}";
+            var shippingExePath = Path.Combine(path, winVersion, shippingExe);
+            var editorExePath = Path.Combine(path, winVersion, editorExe);
 
-        var shippingExePath = Path.Combine(path, $"{exeFile}-{shipping}.exe");
-        var editorExePath = Path.Combine(path, $"{exeFile}-{editor}.exe");
+            if (File.Exists(shippingExePath))
+            {
+                return shippingExePath;
+            }
 
-        if (File.Exists(shippingExePath))
-        {
-            return Path.Combine(path, shippingExePath);
+            if (File.Exists(editorExePath))
+            {
+                return editorExePath;
+            }
+
+            return null;
         }
-
-        if (File.Exists(editorExePath))
-        {
-            return Path.Combine(path, editorExePath);
-        }
-
-        throw new Exception($"The game executable file not found in the provided path: {path}");
     }
 
     private static void ShowInvalidPathMessage()
