@@ -20,6 +20,8 @@ internal static class Debug
 
     public static bool ExportToFolder = false;
 
+    public static bool MergeWithoutConflict = false;
+
     public static async Task ExportMergeToFolder(string folderName, string path, List<PakFileWithContent> pakFiles)
     {
         if (!Directory.Exists(path))

@@ -32,7 +32,7 @@ public class PakMerger : IDisposable
         return await MergePaksWithConflicts(conflicts);
     }
 
-    private static List<FileConflict> FindConflicts(List<Pak> paks)
+    private static List<FileConflict> FindConflicts(List<Pak> paks, bool skipConflictsCheck = false)
     {
         var fileConflicts = new Dictionary<string, FileConflict>();
 
@@ -69,7 +69,7 @@ public class PakMerger : IDisposable
             }
         }
 
-        return fileConflicts.Where(kv => kv.Value.ConflictWith.Count > 1).Select(kv => kv.Value).ToList();
+        return (skipConflictsCheck ? fileConflicts :  fileConflicts.Where(kv => kv.Value.ConflictWith.Count > 1)).Select(kv => kv.Value).ToList();
     }
 
     private async Task<List<PakFileWithContent>> MergePaksWithConflicts(List<FileConflict> conflicts)
@@ -309,6 +309,6 @@ public class PakMerger : IDisposable
             paks = paks.Where(p => Debug.Paks.Contains(p.Name)).ToList();
         }
 
-        return FindConflicts(paks);
+        return FindConflicts(paks, Debug.MergeWithoutConflict);
     }
 }
