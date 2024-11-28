@@ -12,6 +12,17 @@ public class Program
 
     public static async Task Main(string[] args)
     {
+        //var textToParse = await File.ReadAllTextAsync(@"C:\Users\Zweit\Desktop\text2parse.txt");
+        //var lines = textToParse.Split("\n").ToArray();
+        //lines = lines.Where(l => !l.TrimStart().StartsWith("//")).ToArray();
+        //var textToCompare = string.Join("\n", lines);
+
+        //var obj = ConfigSerializer.Deserialize(textToParse);
+        //var result = ConfigSerializer.Serialize(obj);
+
+        //var equal = textToCompare == result;
+
+
         var gamePath = args.FirstOrDefault() ?? "";
         var aesKey = args.Skip(1).FirstOrDefault();
 
@@ -68,10 +79,18 @@ public class Program
             return;
         }
 
+        var serializerTester = new SerializerTest(new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName));
+        var allEquals = await serializerTester.Test("Stalker2/Content/GameLite/GameData", 1000);
+
+        Console.WriteLine("All files are equal: " + allEquals + "\n");
+
+        return;
+
+
         var pakMerger = new PakMerger(
             new Cue4PakProvider(modsPath, aesKey),
             new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName),
-            new DiffMatchPatchFileMerger());
+            new DeserializationFileMerger());
 
         var mergedPakFiles = await pakMerger.MergePaksWithConflicts();
 

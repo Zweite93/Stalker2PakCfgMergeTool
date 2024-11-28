@@ -16,11 +16,15 @@ internal static class Debug
 
     public static List<string> Paks = [];
 
-    public static Dictionary<string, string> FolderPaks = [];
+    public static Dictionary<string, string> FolderPaks = new()
+    {
+        //["test"] = "D:\\Games\\Steam Games\\steamapps\\common\\S.T.A.L.K.E.R. 2 Heart of Chornobyl\\Stalker2\\Content\\Paks\\~mods\\test",
+        ["test2"] = "D:\\Games\\Steam Games\\steamapps\\common\\S.T.A.L.K.E.R. 2 Heart of Chornobyl\\Stalker2\\Content\\Paks\\~mods\\test2"
+    };
 
-    public static bool ExportToFolder = false;
+    public static bool ExportToFolder = true;
 
-    public static bool MergeWithoutConflict = false;
+    public static bool MergeWithoutConflict = true;
 
     public static async Task ExportMergeToFolder(string folderName, string path, List<PakFileWithContent> pakFiles)
     {
