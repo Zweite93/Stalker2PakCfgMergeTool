@@ -85,9 +85,9 @@ public class Cue4PakProvider : IPakProvider
         _provider.Dispose();
     }
 
-    private async Task<byte[]> ReadFile(string pakFilePat, IReadOnlyDictionary<string, GameFile> files, string? pakName)
+    private async Task<byte[]> ReadFile(string pakFilePath, IReadOnlyDictionary<string, GameFile> files, string? pakName)
     {
-        if (files.TryGetValue(pakFilePat, out var gameFile))
+        if (files.TryGetValue(pakFilePath, out var gameFile))
         {
             return await gameFile.ReadAsync();
         }
@@ -95,15 +95,15 @@ public class Cue4PakProvider : IPakProvider
         // if not found in mod paks, throw exception, something is wrong
         if (pakName == null)
         {
-            throw new FileNotFoundException($"File {pakFilePat} not found in {pakName}");
+            throw new FileNotFoundException($"File {pakFilePath} not found in {pakName}");
         }
 
         // original cfg file is most likely in pakchunk0-Windows.pak, but if it's not, find it in any mounted pak
-        _provider.Files.TryGetValue(pakFilePat, out gameFile);
+        _provider.Files.TryGetValue(pakFilePath, out gameFile);
 
         if (gameFile == null)
         {
-            throw new FileNotFoundException($"File {pakFilePat} not found in any mounted pak");
+            throw new FileNotFoundException($"File {pakFilePath} not found in any mounted pak");
         }
 
         return await gameFile.ReadAsync();

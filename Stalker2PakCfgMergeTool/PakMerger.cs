@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using DiffMatchPatch;
 using DiffPlex.DiffBuilder.Model;
 using DiffPlex.DiffBuilder;
 using DiffPlex;
@@ -14,17 +13,21 @@ public class PakMerger : IDisposable
 
     private readonly IPakProvider _pakProvider;
     private readonly IPakProvider _referencePakProvider;
+    private readonly IFileMerger _fileMerger;
 
-    public PakMerger(IPakProvider pakProvider, IPakProvider referencePakProvider)
+    public PakMerger(IPakProvider pakProvider, IPakProvider referencePakProvider, IFileMerger fileMerger)
     {
         _pakProvider = pakProvider;
         _referencePakProvider = referencePakProvider;
+        _fileMerger = fileMerger;
     }
 
     public async Task<List<PakFileWithContent>> MergePaksWithConflicts()
     {
         var paks = _pakProvider.GetPaksInfo();
-        var conflicts = FindConflicts(paks);
+        var conflicts = Debug.IsDebug
+            ? FindConflictsForDebug(paks)
+            : FindConflicts(paks);
 
         return await MergePaksWithConflicts(conflicts);
     }
@@ -32,6 +35,7 @@ public class PakMerger : IDisposable
     private static List<FileConflict> FindConflicts(List<Pak> paks)
     {
         var fileConflicts = new Dictionary<string, FileConflict>();
+
         foreach (var pak in paks)
         {
             foreach (var pakFile in pak.PakFileKeys)
@@ -139,45 +143,27 @@ public class PakMerger : IDisposable
             originalText = await _pakProvider.LoadPakFile(conflict.FilePath, conflict.ConflictWith[0].PakName);
         }
 
-        var dmp = new diff_match_patch();
-        var patches = new List<Patch>();
-        var appliedPatches = new HashSet<string>();
-
-        // TODO: Fix an issue where same lines can be inserted multiple times
+        var modifiedTexts = new List<string>();
         foreach (var pakFile in conflict.ConflictWith)
         {
-            var modifiedText = await _pakProvider.LoadPakFile(pakFile.FilePath, pakFile.PakName);
-            var diffs = dmp.diff_main(originalText, modifiedText);
-            var newPatches = dmp.patch_make(originalText, diffs);
-
-            foreach (var patch in newPatches)
-            {
-                var patchText = dmp.patch_toText([patch]);
-
-                // this should prevent applying the same patch multiple times and not break anything... in theory
-                if (appliedPatches.Contains(patchText))
-                {
-                    continue;
-                }
-
-                patches.Add(patch);
-                appliedPatches.Add(patchText);
-            }
+            var modifiedText = Debug.IsDebug && Debug.FolderPaks.Count > 0
+                ? await File.ReadAllTextAsync(Path.Combine(Debug.FolderPaks[pakFile.PakName], pakFile.FilePath))
+                : await _pakProvider.LoadPakFile(pakFile.FilePath, pakFile.PakName);
+            modifiedTexts.Add(modifiedText);
         }
 
-        var patchesResult = dmp.patch_apply(patches, originalText);
-        var textResult = (string)patchesResult[0];
+        var mergedText = _fileMerger.Merge(originalText, modifiedTexts);
 
         Console.WriteLine("Merged\n");
 
-        var diffHtml = GenerateSideBySideDiffHtml(originalText, textResult, conflict.FileName, conflict.ConflictWith.Select(cw => cw.PakName).ToList());
+        var diffHtml = GenerateSideBySideDiffHtml(originalText, mergedText, conflict.FileName, conflict.ConflictWith.Select(cw => cw.PakName).ToList());
 
         return (new PakFileWithContent
         {
             PakName = "merged",
             FileName = Path.GetFileName(conflict.FilePath),
             FilePath = conflict.FilePath,
-            Content = Encoding.UTF8.GetBytes(textResult)
+            Content = Encoding.UTF8.GetBytes(mergedText)
         }, (conflict.FileName, diffHtml));
     }
 
@@ -293,5 +279,36 @@ public class PakMerger : IDisposable
 
         return highlightedText.ToString();
 
+    }
+
+    private static List<FileConflict> FindConflictsForDebug(List<Pak> paks)
+    {
+        if (Debug.Paks.Count == 0 && Debug.FolderPaks.Count == 0)
+        {
+            return FindConflicts(paks);
+        }
+
+        if (Debug.FolderPaks.Count > 0)
+        {
+            paks = [];
+            foreach(var (_, pakDir) in Debug.FolderPaks)
+            {
+                var dirInfo = new DirectoryInfo(pakDir);
+                var dirs = dirInfo.GetDirectories();
+
+                var pakFiles = dirs.SelectMany(d => d.GetFiles("*.cfg", SearchOption.AllDirectories)).Select(f => Path.GetRelativePath(dirInfo.FullName, f.FullName).Replace("\\", "/")).ToList();
+                paks.Add(new Pak
+                {
+                    Name = dirInfo.Name,
+                    PakFileKeys = pakFiles
+                });
+            }
+        }
+        else
+        {
+            paks = paks.Where(p => Debug.Paks.Contains(p.Name)).ToList();
+        }
+
+        return FindConflicts(paks);
     }
 }

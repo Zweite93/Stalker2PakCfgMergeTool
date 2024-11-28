@@ -1,12 +1,8 @@
 ﻿using System.Diagnostics;
+using Stalker2PakCfgMergeTool.Entities;
 using Stalker2PakCfgMergeTool.Implementations;
 
 namespace Stalker2PakCfgMergeTool;
-
-public static class Constants
-{
-    public const string MergedPakBaseName = "merged_cfg_modpack";
-}
 
 public class Program
 {
@@ -74,7 +70,8 @@ public class Program
 
         var pakMerger = new PakMerger(
             new Cue4PakProvider(modsPath, aesKey),
-            new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName));
+            new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName),
+            new DiffMatchPatchFileMerger());
 
         var mergedPakFiles = await pakMerger.MergePaksWithConflicts();
 
@@ -118,8 +115,15 @@ public class Program
         var mergedPakName = $"{filePrefix}_{Constants.MergedPakBaseName}_{currentDate}_P.pak";
         var mergedPakPath = Path.Combine(gamePath, paksDirectory, ModsDirectoryName, mergedPakName);
 
-        var pakCreator = new NetPakCreator();
-        pakCreator.CreatePak(Constants.MergedPakBaseName, mergedPakPath, mergedPakFiles);
+        if (Debug.IsDebug && Debug.ExportToFolder)
+        {
+            await Debug.ExportMergeToFolder(mergedPakName, Path.Combine(gamePath, paksDirectory, ModsDirectoryName, "merged"), mergedPakFiles);
+        }
+        else
+        {
+            var pakCreator = new NetPakCreator();
+            pakCreator.CreatePak(Constants.MergedPakBaseName, mergedPakPath, mergedPakFiles);
+        }
 
         Console.WriteLine($"Merge pak created: {mergedPakName}\n\n");
 
