@@ -11,6 +11,12 @@ public static class ConfigSerializer
 
     public static List<object> Deserialize(string configText)
     {
+        // Remove BOM if present
+        if (configText.Length > 0 && configText[0] == '\uFEFF')
+        {
+            configText = configText[1..];
+        }
+
         var lines = configText.Split('\n').Select(line => line.Trim()).Where(line => !line.StartsWith("//")).ToList();
         var index = 0;
 
@@ -41,8 +47,33 @@ public static class ConfigSerializer
 
                 index++;
 
-                var nested = DeserializeLines(lines, ref index);
-                result.Add(new ConfigStruct(key, nested, annotation));
+                if (IsList(key) && int.Parse(key.TrimStart('[').TrimEnd(']')) == 0)
+                {
+                    var list = new List<object?>();
+                    while (index < lines.Count && lines[index - 1] is var previousLine && previousLine.TrimStart().StartsWith("["))
+                    {
+                        if (IsStructListEmptyItem(previousLine))
+                        {
+                            list.Add(null);
+                            index++;
+                            continue;
+                        }
+
+                        annotation = previousLine.Split(':')[1].Replace(StructBegin, string.Empty).TrimStart();
+                        var nested = DeserializeLines(lines, ref index);
+                        list.Add(new ConfigStruct(string.Empty, nested, annotation));
+
+                        index++;
+                    }
+
+                    result.Add(list);
+                    index--;
+                }
+                else
+                {
+                    var nested = DeserializeLines(lines, ref index);
+                    result.Add(new ConfigStruct(key, nested, annotation));
+                }
             }
             else
             {
@@ -115,8 +146,8 @@ public static class ConfigSerializer
         {
             switch (item)
             {
-                case ConfigStruct { Values: List<object> nested } configObject:
-                    sb.AppendLine($"{indent}{configObject.Name} : {StructBegin} {configObject.Annotation}".TrimEnd());
+                case ConfigStruct { Values: List<object> nested } configStruct:
+                    sb.AppendLine($"{indent}{configStruct.Name} : {StructBegin} {configStruct.Annotation}".TrimEnd());
                     SerializeLines(nested, sb, indentLevel + 1);
                     sb.AppendLine(indent + StructEnd);
                     break;
@@ -129,6 +160,22 @@ public static class ConfigSerializer
                         sb.AppendLine($"{indent}[{i}] = {listValues[i]}".TrimEnd());
                     }
                     break;
+                case List<object?> listStructs:
+                    for (var i = 0; i < listStructs.Count; i++)
+                    {
+                        var listStruct = listStructs[i];
+                        if (listStruct == null)
+                        {
+                            sb.AppendLine($"{indent}[{i}] =".TrimEnd());
+                            continue;
+                        }
+
+                        var configStruct = (ConfigStruct)listStruct;
+                        sb.AppendLine($"{indent}[{i}] : {StructBegin} {configStruct.Annotation}".TrimEnd());
+                        SerializeLines((configStruct.Values as List<object>)!, sb, indentLevel + 1);
+                        sb.AppendLine(indent + StructEnd);
+                    }
+                    break;
             }
         }
     }
@@ -136,5 +183,13 @@ public static class ConfigSerializer
     private static bool IsList(string? str)
     {
         return Regex.IsMatch(str ?? "", @"\[[0-9]+\]");
+    }
+
+    // handle a special case where struct list item is empty, looks like "[0] ="
+    // "why? because fuck you, that's why" GSC apparently
+    private static bool IsStructListEmptyItem(string line)
+    {
+        var parts = line.Split('=').ToList();
+        return parts.Count > 1 && parts[1] == string.Empty;
     }
 }
