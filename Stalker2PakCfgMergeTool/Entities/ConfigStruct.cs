@@ -3,13 +3,13 @@
 public class ConfigStruct
 {
     public string Name { get; }
-    public object Values { get; }
-    public string Annotation { get; }
+    public List<object> Values { get; }
+    public string NameSuffix { get; }
 
-    public ConfigStruct(string name, object values, string annotation = "")
+    public ConfigStruct(string name, List<object> values, string nameSuffix = "")
     {
         Name = name;
         Values = values;
-        Annotation = annotation;
+        NameSuffix = nameSuffix;
     }
 }

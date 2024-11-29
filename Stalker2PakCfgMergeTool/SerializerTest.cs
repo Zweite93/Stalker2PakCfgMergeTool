@@ -1,10 +1,10 @@
 ﻿using Stalker2PakCfgMergeTool.Interfaces;
-using System.Linq;
 
 namespace Stalker2PakCfgMergeTool;
 
 public class SerializerTest
 {
+    private static readonly object Lock = new();
     private readonly IPakProvider _provider;
 
     public SerializerTest(IPakProvider provider)
@@ -25,6 +25,7 @@ public class SerializerTest
         }
 
         var allFiles = await LoadAllFilesInParallel(configFiles);
+        var allEquals = true;
 
         var cts = new CancellationTokenSource();
         var options = new ParallelOptions { CancellationToken = cts.Token };
@@ -34,8 +35,9 @@ public class SerializerTest
             Parallel.ForEach(allFiles, options, (textToParse, state) =>
             {
                 var lines = textToParse.Split("\n").ToArray();
-                lines = lines.Where(l => !l.TrimStart().StartsWith("//") && !string.IsNullOrWhiteSpace(l)).ToArray();
+                lines = lines.Where(l => !l.TrimStart().StartsWith("//") && !string.IsNullOrWhiteSpace(l)).Select(l => l.Replace("\t", "   ")).ToArray();
                 var textToCompare = string.Join("\n", lines);
+
 
                 var obj = ConfigSerializer.Deserialize(textToParse);
                 var result = ConfigSerializer.Serialize(obj);
@@ -44,24 +46,33 @@ public class SerializerTest
 
                 if (!equal)
                 {
-                    var linesToCompare = result.Split("\n").ToArray();
-                    var resultLines = result.Split("\n").ToArray();
-
-                    if (linesToCompare.Length != resultLines.Length)
+                    lock (Lock)
                     {
-                        cts.Cancel();
-                        state.Stop();
-                        return;
-                    }
+                        var linesToCompare = textToCompare.Trim().Split("\n").ToArray();
+                        var resultLines = result.Trim().Split("\n").ToArray();
 
-                    for (var i = 0; i < linesToCompare.Length; i++)
-                    {
-                        if (linesToCompare[i] != resultLines[i])
+                        if (linesToCompare.Length != resultLines.Length)
                         {
                             cts.Cancel();
                             state.Stop();
+                            allEquals = false;
                             return;
                         }
+
+                        for (var i = 0; i < linesToCompare.Length; i++)
+                        {
+                            var line = linesToCompare[i];
+                            var resultLine = resultLines[i];
+                            if (resultLine != line)
+                            {
+                                cts.Cancel();
+                                state.Stop();
+                                allEquals = false;
+                                return;
+                            }
+                        }
+
+                        return;
                     }
                 }
 
@@ -76,10 +87,10 @@ public class SerializerTest
         }
         catch (OperationCanceledException)
         {
-            return false;
+            return allEquals;
         }
 
-        return true;
+        return allEquals;
     }
 
     private async Task<List<string>> LoadAllFilesInParallel(IEnumerable<string> pakFileKeys)

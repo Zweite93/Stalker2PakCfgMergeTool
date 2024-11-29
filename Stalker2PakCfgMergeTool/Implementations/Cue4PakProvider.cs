@@ -76,7 +76,15 @@ public class Cue4PakProvider : IPakProvider
             bytes = await ReadFile(pakFilePath, _provider.MountedVfs.First(mv => mv.Name == pakName).Files, pakName);
         }
 
-        return Encoding.UTF8.GetString(bytes);
+        var text = Encoding.UTF8.GetString(bytes);
+
+        // Remove BOM if present
+        if (text.Length > 0 && text[0] == '\uFEFF')
+        {
+            return text[1..];
+        }
+
+        return text;
     }
 
     public void Dispose()
