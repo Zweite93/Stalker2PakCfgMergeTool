@@ -24,45 +24,72 @@ public class SerializerTest
             configFiles = configFiles.Take(numberOfFilesToTest.Value);
         }
 
-        foreach (var pakFileKey in configFiles)
+        var allFiles = await LoadAllFilesInParallel(configFiles);
+
+        var cts = new CancellationTokenSource();
+        var options = new ParallelOptions { CancellationToken = cts.Token };
+
+        try
         {
-            var textToParse = await _provider.LoadPakFile(pakFileKey);
-            var lines = textToParse.Split("\n").ToArray();
-            lines = lines.Where(l => !l.TrimStart().StartsWith("//") && !string.IsNullOrWhiteSpace(l)).ToArray();
-            var textToCompare = string.Join("\n", lines);
-
-            var obj = ConfigSerializer.Deserialize(textToParse);
-            var result = ConfigSerializer.Serialize(obj);
-
-            var equal = result.Trim() == textToCompare.Trim();
-
-            if (!equal)
+            Parallel.ForEach(allFiles, options, (textToParse, state) =>
             {
-                var linesToCompare = result.Split("\n").ToArray();
-                var resultLines = result.Split("\n").ToArray();
+                var lines = textToParse.Split("\n").ToArray();
+                lines = lines.Where(l => !l.TrimStart().StartsWith("//") && !string.IsNullOrWhiteSpace(l)).ToArray();
+                var textToCompare = string.Join("\n", lines);
 
-                if (linesToCompare.Length != resultLines.Length)
-                {
-                    return false;
-                }
+                var obj = ConfigSerializer.Deserialize(textToParse);
+                var result = ConfigSerializer.Serialize(obj);
 
-                for (var i = 0; i < linesToCompare.Length; i++)
+                var equal = result.Trim() == textToCompare.Trim();
+
+                if (!equal)
                 {
-                    if (linesToCompare[i] != resultLines[i])
+                    var linesToCompare = result.Split("\n").ToArray();
+                    var resultLines = result.Split("\n").ToArray();
+
+                    if (linesToCompare.Length != resultLines.Length)
                     {
-                        return false;
+                        cts.Cancel();
+                        state.Stop();
+                        return;
+                    }
+
+                    for (var i = 0; i < linesToCompare.Length; i++)
+                    {
+                        if (linesToCompare[i] != resultLines[i])
+                        {
+                            cts.Cancel();
+                            state.Stop();
+                            return;
+                        }
                     }
                 }
-            }
 
-            filesTested++;
+                Interlocked.Increment(ref filesTested);
 
-            if (numberOfFilesToTest > 0 && filesTested >= numberOfFilesToTest)
-            {
-                break;
-            }
+                if (numberOfFilesToTest > 0 && filesTested >= numberOfFilesToTest)
+                {
+                    cts.Cancel();
+                    state.Stop();
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
         }
 
         return true;
+    }
+
+    private async Task<List<string>> LoadAllFilesInParallel(IEnumerable<string> pakFileKeys)
+    {
+        var tasks = pakFileKeys.Select(async key =>
+        {
+            var text = await _provider.LoadPakFile(key);
+            return text;
+        });
+
+        return (await Task.WhenAll(tasks)).ToList();
     }
 }
