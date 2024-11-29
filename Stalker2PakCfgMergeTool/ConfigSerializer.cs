@@ -35,7 +35,7 @@ public static class ConfigSerializer
         while (index < lines.Count)
         {
             var line = lines[index];
-            if (line == StructEnd)
+            if (line.Contains(StructEnd))
             {
                 index++;
                 break;
@@ -43,40 +43,15 @@ public static class ConfigSerializer
 
             if (line.Contains(StructBegin))
             {
-                var parts = line.Split(':', 2);
+                var parts = Regex.Split(line, @"(?=\s*:)");
 
                 var key = parts[0].Trim();
-                var keySuffix = parts[1];
+                var keySuffix = string.Join("", parts.Skip(1));
 
                 index++;
 
-                if (IsList(key) && (listIndex = int.Parse(key.TrimStart('[').TrimEnd(']'))) == 0)
-                {
-                    var list = new List<ConfigStruct?>();
-                    while (index < lines.Count && lines[index - 1] is var previousLine && previousLine.TrimStart().StartsWith("["))
-                    {
-                        if (IsStructListEmptyItem(previousLine))
-                        {
-                            list.Add(null);
-                            index++;
-                            continue;
-                        }
-
-                        keySuffix = previousLine.Split(':', 2)[1];
-                        var nested = DeserializeLines(lines, ref index);
-                        list.Insert(listIndex, new ConfigStruct(string.Empty, nested, keySuffix));
-
-                        index++;
-                    }
-
-                    result.Add(list);
-                    index--;
-                }
-                else
-                {
-                    var nested = DeserializeLines(lines, ref index);
-                    result.Add(new ConfigStruct(key, nested, keySuffix));
-                }
+                var nested = DeserializeLines(lines, ref index);
+                result.Add(new ConfigStruct(key, nested, keySuffix));
             }
             else
             {
@@ -87,41 +62,12 @@ public static class ConfigSerializer
                     var key = parts[0].Trim();
                     var value = parts[1].Trim();
 
-                    if (IsList(key))
-                    {
-                        var listVales = new List<string> { value };
-
-                        // Continue reading lines until the end of the list
-
-                        while (++index < lines.Count)
-                        {
-                            var nextLine = lines[index].Trim();
-                            if (nextLine.Contains('='))
-                            {
-                                var nextParts = nextLine.Split('=');
-                                if (nextParts.Length == 2 && IsList(nextParts[0].Trim()))
-                                {
-                                    listVales.Add(nextParts[1].Trim());
-                                }
-                                else
-                                {
-                                    index--;
-                                    break;
-                                }
-                            }
-                            else
-                            {
-                                index--;
-                                break;
-                            }
-                        }
-
-                        result.Add(listVales);
-                    }
-                    else
-                    {
-                        result.Add(new KeyValuePair<string, string>(key, value));
-                    }
+                    result.Add(new KeyValuePair<string, string>(key, value));
+                }
+                else if (!string.IsNullOrWhiteSpace(line))
+                {
+                    // Unknown line format, just add it as is
+                    result.Add(line);
                 }
 
                 index++;
@@ -150,48 +96,20 @@ public static class ConfigSerializer
             switch (item)
             {
                 case ConfigStruct configStruct:
-                    sb.AppendLine($"{indent}{configStruct.Name} :{configStruct.NameSuffix}".TrimEnd());
+                    sb.AppendLine($"{indent}{configStruct.Key}{configStruct.KeySuffix}".TrimEnd());
                     SerializeLines(configStruct.Values, sb, indentLevel + 1);
                     sb.AppendLine(indent + StructEnd);
                     break;
                 case KeyValuePair<string, string> kvp:
                     sb.AppendLine($"{indent}{kvp.Key} = {kvp.Value}".TrimEnd());
                     break;
-                case List<string> listValues:
-                    for (var i = 0; i < listValues.Count; i++)
-                    {
-                        sb.AppendLine($"{indent}[{i}] = {listValues[i]}".TrimEnd());
-                    }
+                case string line:
+                    sb.AppendLine($"{indent}{line}".TrimEnd());
                     break;
-                case List<ConfigStruct?> structList:
-                    for (var i = 0; i < structList.Count; i++)
-                    {
-                        var listStruct = structList[i];
-                        if (listStruct == null)
-                        {
-                            sb.AppendLine($"{indent}[{i}] =".TrimEnd());
-                            continue;
-                        }
 
-                        sb.AppendLine($"{indent}[{i}] :{listStruct.NameSuffix}".TrimEnd());
-                        SerializeLines(listStruct.Values, sb, indentLevel + 1);
-                        sb.AppendLine(indent + StructEnd);
-                    }
-                    break;
+                default:
+                    throw new Exception("Unexpected item type");
             }
         }
-    }
-
-    private static bool IsList(string? str)
-    {
-        return Regex.IsMatch(str ?? "", @"\[[0-9]+\]");
-    }
-
-    // handle a special case where struct list item is empty, looks like "[0] ="
-    // "why? because fuck you, that's why" GSC apparently
-    private static bool IsStructListEmptyItem(string line)
-    {
-        var parts = line.Split('=').ToList();
-        return parts.Count > 1 && parts[1] == string.Empty;
     }
 }

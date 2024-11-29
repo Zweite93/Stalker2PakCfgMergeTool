@@ -2,14 +2,14 @@
 
 public class ConfigStruct
 {
-    public string Name { get; }
+    public string Key { get; }
     public List<object> Values { get; }
-    public string NameSuffix { get; }
+    public string KeySuffix { get; }
 
-    public ConfigStruct(string name, List<object> values, string nameSuffix = "")
+    public ConfigStruct(string key, List<object> values, string keySuffix = "")
     {
-        Name = name;
+        Key = key;
         Values = values;
-        NameSuffix = nameSuffix;
+        KeySuffix = keySuffix;
     }
 }
