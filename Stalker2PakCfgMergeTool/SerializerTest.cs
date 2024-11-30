@@ -69,13 +69,8 @@ public class SerializerTest
 
                     for (var i = 0; i < linesToCompare.Length; i++)
                     {
-                        if (i == 6335)
-                        {
-
-                        }
-
-                        var line = NormalizeWhitespaceAroundSeparators(linesToCompare[i].Trim(), '=', ':');
-                        var resultLine = NormalizeWhitespaceAroundSeparators(resultLines[i].Trim(), '=', ':');
+                        var line = Normalize(linesToCompare[i]);
+                        var resultLine = Normalize(resultLines[i]);
                         if (resultLine != line)
                         {
                             allEquals = false;
@@ -103,12 +98,19 @@ public class SerializerTest
         return (await Task.WhenAll(tasks)).ToList();
     }
 
-    private static string NormalizeWhitespaceAroundSeparators(string input, params char[] separators)
+    private static string Normalize(string input)
     {
+        input = input.Trim().Replace("  ", " ");
+
+        var separators = new List<char> { ':', '=' };
         foreach (var separator in separators)
         {
             input = Regex.Replace(input, $@"\s*{separator}\s*", $" {separator} ");
         }
+
+        // Normalize whitespace around '{' and '}'
+        input = Regex.Replace(input, @"\s*{\s*", " { ");
+        input = Regex.Replace(input, @"\s*}\s*", " } ");
 
         return input;
     }

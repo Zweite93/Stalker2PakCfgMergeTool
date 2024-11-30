@@ -28,9 +28,9 @@ public static class ConfigSerializer
         return config;
     }
 
-    private static List<object> DeserializeLines(List<string> lines, ref int index)
+    private static List<ConfigKeyValuePair<string, object?>> DeserializeLines(List<string> lines, ref int index)
     {
-        var result = new List<object>();
+        var result = new List<ConfigKeyValuePair<string, object?>>();
 
         while (index < lines.Count)
         {
@@ -43,15 +43,23 @@ public static class ConfigSerializer
 
             if (line.Contains(StructBegin))
             {
-                var parts = Regex.Split(line, @"(?=\s*:)");
+                var parts = line.Split(':', 2);
 
                 var key = parts[0].Trim();
-                var keySuffix = string.Join("", parts.Skip(1));
+                var suffix = parts[1].Replace(StructBegin, string.Empty).Trim();
 
                 index++;
 
                 var nested = DeserializeLines(lines, ref index);
-                result.Add(new ConfigStruct(key, nested, keySuffix));
+                var configStruct = new ConfigStruct(key, nested, suffix);
+
+#if DEBUG
+                foreach (var item in nested)
+                {
+                    item.Parent = configStruct;
+                }
+#endif
+                result.Add(new ConfigKeyValuePair<string, object?>(key, configStruct));
             }
             else
             {
@@ -62,12 +70,12 @@ public static class ConfigSerializer
                     var key = parts[0].Trim();
                     var value = parts[1].Trim();
 
-                    result.Add(new KeyValuePair<string, string>(key, value));
+                    result.Add(new ConfigKeyValuePair<string, object?>(key, value));
                 }
                 else if (!string.IsNullOrWhiteSpace(line))
                 {
                     // Unknown line format, just add it as is
-                    result.Add(line);
+                    result.Add(new ConfigKeyValuePair<string, object?>(line, null));
                 }
 
                 index++;
@@ -87,27 +95,27 @@ public static class ConfigSerializer
         return result;
     }
 
-    private static void SerializeLines(List<object> values, StringBuilder sb, int indentLevel)
+    private static void SerializeLines(List<ConfigKeyValuePair<string, object?>> values, StringBuilder sb, int indentLevel)
     {
         var indent = new string(' ', indentLevel * 3);
 
         foreach (var item in values)
         {
-            switch (item)
+            switch (item.Value)
             {
                 case ConfigStruct configStruct:
-                    sb.AppendLine($"{indent}{configStruct.Key}{configStruct.KeySuffix}".TrimEnd());
+                    sb.AppendLine($"{indent}{item.Key} : {StructBegin} {configStruct.Suffix}".TrimEnd());
                     SerializeLines(configStruct.Values, sb, indentLevel + 1);
                     sb.AppendLine(indent + StructEnd);
                     break;
-                case KeyValuePair<string, string> kvp:
-                    sb.AppendLine($"{indent}{kvp.Key} = {kvp.Value}".TrimEnd());
-                    break;
-                case string line:
-                    sb.AppendLine($"{indent}{line}".TrimEnd());
+                case string:
+                case null:
+                    var setValueStr = item.Value == null ? string.Empty : $" = {item.Value}";
+                    sb.AppendLine($"{indent}{item.Key}{setValueStr}".TrimEnd());
                     break;
 
                 default:
+                    
                     throw new Exception("Unexpected item type");
             }
         }

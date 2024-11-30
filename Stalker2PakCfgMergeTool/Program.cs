@@ -14,14 +14,20 @@ public class Program
     {
         //var textToParse = await File.ReadAllTextAsync(@"C:\Users\Zweit\Desktop\text2parse.txt");
         //var lines = textToParse.Split("\n").ToArray();
-        //lines = lines.Where(l => !l.TrimStart().StartsWith("//")).ToArray();
+        //lines = lines.Where(l => !l.TrimStart().StartsWith("//") && !string.IsNullOrWhiteSpace(l)).Select(l => l.Replace("\t", "   ")).ToArray();
         //var textToCompare = string.Join("\n", lines);
 
         //var obj = ConfigSerializer.Deserialize(textToParse);
         //var result = ConfigSerializer.Serialize(obj);
 
-        //var equal = textToCompare == result;
+        //var equal = textToCompare.Trim() == result.Trim();
 
+        //var textToParse2 = string.Join('\n', textToCompare.Split("\n").Select(l => l.Trim()));
+        //var result2 = string.Join('\n', result.Split("\n").Select(l => l.Trim()));
+
+        //var equal2 = textToCompare.Trim() == result.Trim();
+
+        //return;
 
         var gamePath = args.FirstOrDefault() ?? "";
         var aesKey = args.Skip(1).FirstOrDefault();
@@ -79,12 +85,12 @@ public class Program
             return;
         }
 
-        var serializerTester = new SerializerTest(new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName));
-        var allEquals = await serializerTester.Test("Stalker2/Content/GameLite/GameData", 1000);
+        //var serializerTester = new SerializerTest(new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName));
+        //var allEquals = await serializerTester.Test("Stalker2");
 
-        Console.WriteLine("All files are equal: " + allEquals + "\n");
+        //Console.WriteLine("All files are equal: " + allEquals + "\n");
 
-        return;
+        //return;
 
 
         var pakMerger = new PakMerger(

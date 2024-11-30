@@ -77,7 +77,7 @@ public class PakMerger : IDisposable
         var pakFiles = new List<PakFileWithContent>();
         var diffHtmlList = new List<(string fileName, string diffHtml)>();
 
-        foreach (var conflict in conflicts.OrderBy(c => c.FileName))
+        foreach (var conflict in conflicts.OrderByDescending(c => c.FileName))
         {
             try
             {
@@ -121,7 +121,7 @@ public class PakMerger : IDisposable
     private async Task<(PakFileWithContent pak, (string fileName, string diffHtlm))> MergePakWithConflicts(FileConflict conflict)
     {
         // Sort conflict with by pak name to have consistent output
-        conflict.ConflictWith = conflict.ConflictWith.OrderBy(fc => fc.PakName).ToList();
+        conflict.ConflictWith = conflict.ConflictWith.OrderByDescending(fc => fc.PakName).ToList();
 
         Console.WriteLine($"Merging {conflict.FilePath}\n");
         Console.WriteLine("Conflict with:");
@@ -152,7 +152,7 @@ public class PakMerger : IDisposable
             modifiedTexts.Add(modifiedText);
         }
 
-        var mergedText = _fileMerger.Merge(originalText, modifiedTexts);
+        (originalText, var mergedText) = _fileMerger.Merge(originalText, modifiedTexts);
 
         Console.WriteLine("Merged\n");
 
