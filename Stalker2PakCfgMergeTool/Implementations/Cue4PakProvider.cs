@@ -69,14 +69,22 @@ public class Cue4PakProvider : IPakProvider
         byte[] bytes;
         if (pakName == null)
         {
-            bytes = await ReadFile(pakFilePath, _provider.Files, _pakName);
+            bytes = await ReadFile(pakFilePath, _provider.MountedVfs.First(mv => mv.Name == _pakName).Files, _pakName);
         }
         else
         {
-            bytes = await ReadFile(pakFilePath, _provider.MountedVfs.First(mv => mv.Name == pakName).Files, pakName);
+            bytes = await ReadFile(pakFilePath, _provider.MountedVfs.First(mv => mv.Name == pakName).Files);
         }
 
-        return Encoding.UTF8.GetString(bytes);
+        var text = Encoding.UTF8.GetString(bytes);
+
+        // Remove BOM if present
+        if (text.Length > 0 && text[0] == '\uFEFF')
+        {
+            return text[1..];
+        }
+
+        return text;
     }
 
     public void Dispose()
@@ -85,7 +93,7 @@ public class Cue4PakProvider : IPakProvider
         _provider.Dispose();
     }
 
-    private async Task<byte[]> ReadFile(string pakFilePath, IReadOnlyDictionary<string, GameFile> files, string? pakName)
+    private async Task<byte[]> ReadFile(string pakFilePath, IReadOnlyDictionary<string, GameFile> files, string? pakName = null)
     {
         if (files.TryGetValue(pakFilePath, out var gameFile))
         {

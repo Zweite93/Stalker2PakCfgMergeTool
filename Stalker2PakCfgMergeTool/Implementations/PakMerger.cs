@@ -5,7 +5,7 @@ using DiffPlex;
 using Stalker2PakCfgMergeTool.Entities;
 using Stalker2PakCfgMergeTool.Interfaces;
 
-namespace Stalker2PakCfgMergeTool;
+namespace Stalker2PakCfgMergeTool.Implementations;
 
 public class PakMerger : IDisposable
 {
@@ -25,14 +25,14 @@ public class PakMerger : IDisposable
     public async Task<List<PakFileWithContent>> MergePaksWithConflicts()
     {
         var paks = _pakProvider.GetPaksInfo();
-        var conflicts = Debug.IsDebug
+        var conflicts = DebugTools.Debug.IsDebug
             ? FindConflictsForDebug(paks)
             : FindConflicts(paks);
 
         return await MergePaksWithConflicts(conflicts);
     }
 
-    private static List<FileConflict> FindConflicts(List<Pak> paks)
+    private static List<FileConflict> FindConflicts(List<Pak> paks, bool skipConflictsCheck = false)
     {
         var fileConflicts = new Dictionary<string, FileConflict>();
 
@@ -69,7 +69,7 @@ public class PakMerger : IDisposable
             }
         }
 
-        return fileConflicts.Where(kv => kv.Value.ConflictWith.Count > 1).Select(kv => kv.Value).ToList();
+        return (skipConflictsCheck ? fileConflicts : fileConflicts.Where(kv => kv.Value.ConflictWith.Count > 1)).Select(kv => kv.Value).ToList();
     }
 
     private async Task<List<PakFileWithContent>> MergePaksWithConflicts(List<FileConflict> conflicts)
@@ -77,7 +77,7 @@ public class PakMerger : IDisposable
         var pakFiles = new List<PakFileWithContent>();
         var diffHtmlList = new List<(string fileName, string diffHtml)>();
 
-        foreach (var conflict in conflicts.OrderBy(c => c.FileName))
+        foreach (var conflict in conflicts)
         {
             try
             {
@@ -121,7 +121,7 @@ public class PakMerger : IDisposable
     private async Task<(PakFileWithContent pak, (string fileName, string diffHtlm))> MergePakWithConflicts(FileConflict conflict)
     {
         // Sort conflict with by pak name to have consistent output
-        conflict.ConflictWith = conflict.ConflictWith.OrderBy(fc => fc.PakName).ToList();
+        conflict.ConflictWith = conflict.ConflictWith.OrderByDescending(fc => fc.PakName).ToList();
 
         Console.WriteLine($"Merging {conflict.FilePath}\n");
         Console.WriteLine("Conflict with:");
@@ -143,16 +143,16 @@ public class PakMerger : IDisposable
             originalText = await _pakProvider.LoadPakFile(conflict.FilePath, conflict.ConflictWith[0].PakName);
         }
 
-        var modifiedTexts = new List<string>();
+        var modifiedTexts = new List<(string pakName, string modifiedText)>();
         foreach (var pakFile in conflict.ConflictWith)
         {
-            var modifiedText = Debug.IsDebug && Debug.FolderPaks.Count > 0
-                ? await File.ReadAllTextAsync(Path.Combine(Debug.FolderPaks[pakFile.PakName], pakFile.FilePath))
-                : await _pakProvider.LoadPakFile(pakFile.FilePath, pakFile.PakName);
+            var modifiedText = (pakFile.PakName, DebugTools.Debug.IsDebug && DebugTools.Debug.FolderPaks.Count > 0
+                ? await File.ReadAllTextAsync(Path.Combine(DebugTools.Debug.FolderPaks[pakFile.PakName], pakFile.FilePath))
+                : await _pakProvider.LoadPakFile(pakFile.FilePath, pakFile.PakName));
             modifiedTexts.Add(modifiedText);
         }
 
-        var mergedText = _fileMerger.Merge(originalText, modifiedTexts);
+        (originalText, var mergedText) = _fileMerger.Merge(originalText, conflict.FileName, modifiedTexts);
 
         Console.WriteLine("Merged\n");
 
@@ -163,7 +163,8 @@ public class PakMerger : IDisposable
             PakName = "merged",
             FileName = Path.GetFileName(conflict.FilePath),
             FilePath = conflict.FilePath,
-            Content = Encoding.UTF8.GetBytes(mergedText)
+            Content = Encoding.UTF8.GetBytes(mergedText),
+            OriginalContent = Encoding.UTF8.GetBytes(originalText)
         }, (conflict.FileName, diffHtml));
     }
 
@@ -283,15 +284,15 @@ public class PakMerger : IDisposable
 
     private static List<FileConflict> FindConflictsForDebug(List<Pak> paks)
     {
-        if (Debug.Paks.Count == 0 && Debug.FolderPaks.Count == 0)
+        if (DebugTools.Debug.Paks.Count == 0 && DebugTools.Debug.FolderPaks.Count == 0)
         {
             return FindConflicts(paks);
         }
 
-        if (Debug.FolderPaks.Count > 0)
+        if (DebugTools.Debug.FolderPaks.Count > 0)
         {
             paks = [];
-            foreach(var (_, pakDir) in Debug.FolderPaks)
+            foreach (var (_, pakDir) in DebugTools.Debug.FolderPaks)
             {
                 var dirInfo = new DirectoryInfo(pakDir);
                 var dirs = dirInfo.GetDirectories();
@@ -306,9 +307,9 @@ public class PakMerger : IDisposable
         }
         else
         {
-            paks = paks.Where(p => Debug.Paks.Contains(p.Name)).ToList();
+            paks = paks.Where(p => DebugTools.Debug.Paks.Contains(p.Name)).ToList();
         }
 
-        return FindConflicts(paks);
+        return FindConflicts(paks, DebugTools.Debug.MergeWithoutConflict);
     }
 }

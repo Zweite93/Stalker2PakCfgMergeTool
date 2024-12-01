@@ -1,6 +1,4 @@
 ﻿using System.Diagnostics;
-
-using Stalker2PakCfgMergeTool.Entities;
 using Stalker2PakCfgMergeTool.Implementations;
 
 namespace Stalker2PakCfgMergeTool;
@@ -13,13 +11,12 @@ public class Program
 
     public static async Task Main(string[] args)
     {
-        string gamePath = "";
+        var gamePath = "";
         string? aesKey = null;
-        bool skipReport = false;
+        var skipReport = false;
+        var unpack = false;
 
-
-
-        for (int i = 0; i < args.Length; i++)
+        for (var i = 0; i < args.Length; i++)
         {
             switch (args[i])
             {
@@ -39,7 +36,9 @@ public class Program
                 case "--skipreport":
                     skipReport = true;
                     break;
-
+                case "--unpack":
+                    unpack = true;
+                    break;
                 default:
                     if (string.IsNullOrEmpty(gamePath))
                     {
@@ -64,18 +63,20 @@ public class Program
 
         try
         {
-            await Execute(gamePath, aesKey, skipReport);
+            await Execute(gamePath, aesKey, skipReport, unpack);
         }
         catch (Exception e)
         {
             Console.WriteLine("Unexpected error occurred:");
             Console.WriteLine(e.Message);
             Console.WriteLine();
+            Console.WriteLine(e.StackTrace);
+            Console.WriteLine();
             PressAnyKeyToExit();
         }
     }
 
-    private static async Task Execute(string gamePath, string? aesKey, bool skipReport = false)
+    private static async Task Execute(string gamePath, string? aesKey, bool skipReport, bool unpack)
     {
         if (string.IsNullOrEmpty(gamePath) || !Directory.Exists(gamePath))
         {
@@ -98,7 +99,8 @@ public class Program
 
         if (aesKey == null)
         {
-            Console.WriteLine("Could not find valid AES key. You can try getting your oun AES key and passing it as a second argument after game root path.");
+            Console.WriteLine("Could not find valid AES key. Please find provide AES key as an argument.\n");
+            Console.WriteLine("EXAMPLE: --aes your_aes_key");
             PressAnyKeyToExit();
             return;
         }
@@ -115,10 +117,20 @@ public class Program
             return;
         }
 
+#if DEBUG
+        // TODO: make a unit test out if it
+        //var serializerTester = new SerializerTest(new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName), new ConfigSerializer(), new ConfigSerializerVerifier(new ConfigSerializer()));
+        //var allEquals = await serializerTester.Test("Stalker2");
+
+        //Console.WriteLine("All files are equal: " + allEquals + "\n");
+
+        //return;
+#endif
+
         var pakMerger = new PakMerger(
             new Cue4PakProvider(modsPath, aesKey),
             new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName),
-            new DiffMatchPatchFileMerger());
+            new DeserializationFileMerger(new ConfigSerializer(), new ConfigSerializerVerifier(new ConfigSerializer())));
 
         var mergedPakFiles = await pakMerger.MergePaksWithConflicts();
 
@@ -169,15 +181,13 @@ public class Program
             oldMergedPakFile.Delete();
         }
 
-        if (Debug.IsDebug && Debug.ExportToFolder)
+        if (unpack)
         {
-            await Debug.ExportMergeToFolder(mergedPakName, Path.Combine(gamePath, paksDirectory, ModsDirectoryName, "merged"), mergedPakFiles);
+            await DebugTools.Debug.ExportMergeToFolder(Path.Combine(gamePath, paksDirectory, ModsDirectoryName, "merged"), mergedPakFiles);
         }
-        else
-        {
-            var pakCreator = new NetPakCreator();
-            pakCreator.CreatePak(Constants.MergedPakBaseName, mergedPakPath, mergedPakFiles);
-        }
+
+        var pakCreator = new NetPakCreator();
+        pakCreator.CreatePak(Constants.MergedPakBaseName, mergedPakPath, mergedPakFiles);
 
         Console.WriteLine($"Merge pak created: {mergedPakName}\n\n");
 
@@ -256,22 +266,7 @@ public class Program
             return defaultAecKey;
         }
 
-        Console.WriteLine("Default AES key is invalid. Trying to grab AES key from game's executable.\n");
-
-        aesKey = AesKeyGetter.Get(Path.Combine(gamePath, exeFilePath));
-
-        if (string.IsNullOrEmpty(aesKey))
-        {
-            Console.WriteLine("AES key not found in game's executable.\n");
-            return null;
-        }
-
-        if (await Cue4PakProvider.TestAesKey(aesKey, Path.Combine(gamePath, paksDirectory)))
-        {
-            return aesKey;
-        }
-
-        Console.WriteLine("AES key from game's executable is invalid.\n");
+        Console.WriteLine("Default AES key is invalid.\n");
 
         return null;
     }
