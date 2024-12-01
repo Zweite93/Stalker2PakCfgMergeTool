@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using Stalker2PakCfgMergeTool.Entities;
 using Stalker2PakCfgMergeTool.Implementations;
 
 namespace Stalker2PakCfgMergeTool;
@@ -12,23 +11,6 @@ public class Program
 
     public static async Task Main(string[] args)
     {
-        //var textToParse = await File.ReadAllTextAsync(@"C:\Users\Zweit\Desktop\text2parse.txt");
-        //var lines = textToParse.Split("\n").ToArray();
-        //lines = lines.Where(l => !l.TrimStart().StartsWith("//") && !string.IsNullOrWhiteSpace(l)).Select(l => l.Replace("\t", "   ")).ToArray();
-        //var textToCompare = string.Join("\n", lines);
-
-        //var obj = ConfigSerializer.Deserialize(textToParse);
-        //var result = ConfigSerializer.Serialize(obj);
-
-        //var equal = textToCompare.Trim() == result.Trim();
-
-        //var textToParse2 = string.Join('\n', textToCompare.Split("\n").Select(l => l.Trim()));
-        //var result2 = string.Join('\n', result.Split("\n").Select(l => l.Trim()));
-
-        //var equal2 = textToCompare.Trim() == result.Trim();
-
-        //return;
-
         var gamePath = args.FirstOrDefault() ?? "";
         var aesKey = args.Skip(1).FirstOrDefault();
 
@@ -84,14 +66,6 @@ public class Program
             PressAnyKeyToExit();
             return;
         }
-
-        var serializerTester = new SerializerTest(new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName));
-        var allEquals = await serializerTester.Test("Stalker2");
-
-        Console.WriteLine("All files are equal: " + allEquals + "\n");
-
-        return;
-
 
         var pakMerger = new PakMerger(
             new Cue4PakProvider(modsPath, aesKey),
