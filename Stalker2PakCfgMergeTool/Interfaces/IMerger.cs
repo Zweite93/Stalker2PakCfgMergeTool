@@ -2,5 +2,5 @@
 
 public interface IFileMerger
 {
-    string Merge(string originalText, List<string> modifiedTexts);
+    (string originalText, string mergedText) Merge(string originalText, string fileName, List<(string pakName, string modifiedText)> modifiedTexts);
 }

@@ -11,8 +11,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetPak", "NetPak\NetPak\Net
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EpicGames.Oodle", "NetPak\EpicGames.Oodle\EpicGames.Oodle.csproj", "{E4E45FC7-A6A5-4CEB-B8D4-F4B00D3781F6}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AESDumpster", "AESDumpster\AESDumpster.vcxproj", "{B196085E-4510-49FB-8D8F-55D63D8F1988}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,18 +57,6 @@ Global
 		{E4E45FC7-A6A5-4CEB-B8D4-F4B00D3781F6}.Release|x64.Build.0 = Release|Any CPU
 		{E4E45FC7-A6A5-4CEB-B8D4-F4B00D3781F6}.Release|x86.ActiveCfg = Release|Any CPU
 		{E4E45FC7-A6A5-4CEB-B8D4-F4B00D3781F6}.Release|x86.Build.0 = Release|Any CPU
-		{B196085E-4510-49FB-8D8F-55D63D8F1988}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{B196085E-4510-49FB-8D8F-55D63D8F1988}.Debug|Any CPU.Build.0 = Debug|x64
-		{B196085E-4510-49FB-8D8F-55D63D8F1988}.Debug|x64.ActiveCfg = Debug|x64
-		{B196085E-4510-49FB-8D8F-55D63D8F1988}.Debug|x64.Build.0 = Debug|x64
-		{B196085E-4510-49FB-8D8F-55D63D8F1988}.Debug|x86.ActiveCfg = Debug|Win32
-		{B196085E-4510-49FB-8D8F-55D63D8F1988}.Debug|x86.Build.0 = Debug|Win32
-		{B196085E-4510-49FB-8D8F-55D63D8F1988}.Release|Any CPU.ActiveCfg = Release|x64
-		{B196085E-4510-49FB-8D8F-55D63D8F1988}.Release|Any CPU.Build.0 = Release|x64
-		{B196085E-4510-49FB-8D8F-55D63D8F1988}.Release|x64.ActiveCfg = Release|x64
-		{B196085E-4510-49FB-8D8F-55D63D8F1988}.Release|x64.Build.0 = Release|x64
-		{B196085E-4510-49FB-8D8F-55D63D8F1988}.Release|x86.ActiveCfg = Release|Win32
-		{B196085E-4510-49FB-8D8F-55D63D8F1988}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
