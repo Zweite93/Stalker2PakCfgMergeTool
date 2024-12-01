@@ -1,4 +1,6 @@
-﻿namespace Stalker2PakCfgMergeTool.Entities;
+﻿using Stalker2PakCfgMergeTool.Enums;
+
+namespace Stalker2PakCfgMergeTool.Entities;
 
 public abstract class ConfigItem<T> where T : class
 {

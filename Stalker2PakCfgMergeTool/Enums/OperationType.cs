@@ -1,4 +1,4 @@
-﻿namespace Stalker2PakCfgMergeTool;
+﻿namespace Stalker2PakCfgMergeTool.Enums;
 
 [Flags]
 public enum OperationType

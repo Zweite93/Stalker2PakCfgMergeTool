@@ -11,13 +11,11 @@ public class Program
 
     public static async Task Main(string[] args)
     {
-        string gamePath = "";
+        var gamePath = "";
         string? aesKey = null;
-        bool skipReport = false;
+        var skipReport = false;
 
-
-
-        for (int i = 0; i < args.Length; i++)
+        for (var i = 0; i < args.Length; i++)
         {
             switch (args[i])
             {
@@ -113,10 +111,20 @@ public class Program
             return;
         }
 
+#if DEBUG
+        // TODO: make a unit test out if it
+        //var serializerTester = new SerializerTest(new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName), new ConfigSerializer(), new ConfigSerializerVerifier(new ConfigSerializer()));
+        //var allEquals = await serializerTester.Test("Stalker2");
+
+        //Console.WriteLine("All files are equal: " + allEquals + "\n");
+
+        //return;
+#endif
+
         var pakMerger = new PakMerger(
             new Cue4PakProvider(modsPath, aesKey),
             new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName),
-            new DeserializationFileMerger());
+            new DeserializationFileMerger(new ConfigSerializer(), new ConfigSerializerVerifier(new ConfigSerializer())));
 
         var mergedPakFiles = await pakMerger.MergePaksWithConflicts();
 
@@ -167,9 +175,9 @@ public class Program
             oldMergedPakFile.Delete();
         }
 
-        if (Debug.IsDebug && Debug.ExportToFolder)
+        if (DebugTools.Debug.IsDebug && DebugTools.Debug.ExportToFolder)
         {
-            await Debug.ExportMergeToFolder(mergedPakName, Path.Combine(gamePath, paksDirectory, ModsDirectoryName, "merged"), mergedPakFiles);
+            await DebugTools.Debug.ExportMergeToFolder(mergedPakName, Path.Combine(gamePath, paksDirectory, ModsDirectoryName, "merged"), mergedPakFiles);
         }
         else
         {

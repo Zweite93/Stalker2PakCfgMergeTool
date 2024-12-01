@@ -1,14 +1,25 @@
 ﻿using System.Text;
 using Stalker2PakCfgMergeTool.Entities;
+using Stalker2PakCfgMergeTool.Interfaces;
 
-namespace Stalker2PakCfgMergeTool;
+namespace Stalker2PakCfgMergeTool.Implementations;
 
-public static class ConfigSerializer
+public class ConfigSerializer : IConfigSerializer
 {
     private const string StructBegin = "struct.begin";
     private const string StructEnd = "struct.end";
 
-    public static Config Deserialize(string fileName, string pakName, string configText)
+    public string Serialize(Config config)
+    {
+        var sb = new StringBuilder();
+        SerializeLines(config.Values, sb, 0);
+
+        var result = sb.ToString();
+
+        return result;
+    }
+
+    public Config Deserialize(string fileName, string pakName, string configText)
     {
         // Remove BOM if present
         if (configText.Length > 0 && configText[0] == '\uFEFF')
@@ -133,16 +144,6 @@ public static class ConfigSerializer
                 index++;
             }
         }
-
-        return result;
-    }
-
-    public static string Serialize(Config config)
-    {
-        var sb = new StringBuilder();
-        SerializeLines(config.Values, sb, 0);
-
-        var result = sb.ToString();
 
         return result;
     }

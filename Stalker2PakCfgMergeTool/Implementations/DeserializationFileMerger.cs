@@ -1,4 +1,5 @@
 ﻿using Stalker2PakCfgMergeTool.Entities;
+using Stalker2PakCfgMergeTool.Enums;
 using Stalker2PakCfgMergeTool.Interfaces;
 
 namespace Stalker2PakCfgMergeTool.Implementations;
@@ -7,10 +8,28 @@ namespace Stalker2PakCfgMergeTool.Implementations;
 // changes history can be later used to implement an actual UI where users will be able to choose which changes to apply
 public class DeserializationFileMerger : IFileMerger
 {
+    private readonly IConfigSerializer _configSerializer;
+    private readonly IConfigSerializerVerifier _configSerializerVerifier;
+
+    public DeserializationFileMerger(IConfigSerializer configSerializer, IConfigSerializerVerifier configSerializerVerifier)
+    {
+        _configSerializer = configSerializer;
+        _configSerializerVerifier = configSerializerVerifier;
+    }
+
     public (string originalText, string mergedText) Merge(string originalText, string fileName, List<(string pakName, string modifiedText)> modifiedTexts)
     {
-        var originalConfig = ConfigSerializer.Deserialize(fileName, "original", originalText);
-        var modifiedConfigs = modifiedTexts.Select(mt => ConfigSerializer.Deserialize(fileName, mt.pakName, mt.modifiedText)).ToList();
+        var originalConfig = _configSerializer.Deserialize(fileName, "original", originalText);
+
+        VerifyConfig(originalConfig, originalText);
+
+        var modifiedConfigs = modifiedTexts.Select(mt =>
+        {
+            var modifiedConfig = _configSerializer.Deserialize(fileName, mt.pakName, mt.modifiedText);
+            VerifyConfig(modifiedConfig, mt.modifiedText);
+            return modifiedConfig;
+        }).ToList();
+
         var changesHistoryList = new List<Config>();
 
         foreach (var modifiedConfig in modifiedConfigs)
@@ -21,16 +40,25 @@ public class DeserializationFileMerger : IFileMerger
             changesHistoryList.Add(changesHistory);
         }
 
-        originalText = ConfigSerializer.Serialize(originalConfig);
+        originalText = _configSerializer.Serialize(originalConfig);
 
         foreach (var changesHistory in changesHistoryList)
         {
             ApplyChangesHistory(originalConfig.Values, changesHistory.Values);
         }
 
-        var mergedText = ConfigSerializer.Serialize(originalConfig);
+        var mergedText = _configSerializer.Serialize(originalConfig);
 
         return (originalText, mergedText);
+    }
+
+    private void VerifyConfig(Config config, string configText)
+    {
+        var verificationResult = _configSerializerVerifier.Verify(config, configText);
+        if (!verificationResult.Success)
+        {
+            Console.WriteLine($"{config.PakName} | {config.Name} verification failed. This file might not merge correctly.");
+        }
     }
 
     private static OperationType BuildChangesHistory(List<ConfigItem<object>> originalConfigValues, List<ConfigItem<object>> modifiedConfigValues, List<ConfigItem<object>> changesHistory)
@@ -52,7 +80,7 @@ public class DeserializationFileMerger : IFileMerger
                     keysInModifiedConfig.Add(configString.Id);
                     break;
                 default:
-                    throw new Exception($"Unknown type: {modifiedValue.Value.GetType()}");
+                    throw new Exception($"Unknown type: {modifiedValue.Value?.GetType()}");
             }
 
             if (mergeOperationTypeResult != OperationType.Unchanged)
