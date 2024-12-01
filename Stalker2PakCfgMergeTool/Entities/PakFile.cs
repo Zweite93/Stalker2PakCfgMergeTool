@@ -9,5 +9,6 @@ public class PakFile
 
 public class PakFileWithContent : PakFile
 {
+    public required byte[] OriginalContent { get; set; }
     public required byte[] Content { get; set; }
 }

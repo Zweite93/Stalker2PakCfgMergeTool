@@ -20,11 +20,9 @@ internal static class Debug
 
     public static Dictionary<string, string> FolderPaks = [];
 
-    public static bool ExportToFolder = false;
-
     public static bool MergeWithoutConflict = false;
 
-    public static async Task ExportMergeToFolder(string folderName, string path, List<PakFileWithContent> pakFiles)
+    public static async Task ExportMergeToFolder(string path, List<PakFileWithContent> pakFiles)
     {
         if (!Directory.Exists(path))
         {
@@ -40,11 +38,14 @@ internal static class Debug
         {
             var filePath = Path.Combine(path, file.FilePath);
             var directoryPath = Path.GetDirectoryName(filePath)!;
+
             if (!Directory.Exists(directoryPath))
             {
                 Directory.CreateDirectory(directoryPath);
             }
+
             await File.WriteAllBytesAsync(filePath, file.Content);
+            await File.WriteAllBytesAsync(filePath + ".original", file.OriginalContent);
         }
     }
 }

@@ -156,8 +156,6 @@ public class PakMerger : IDisposable
 
         Console.WriteLine("Merged\n");
 
-        originalText = string.Join('\n', originalText.Split('\n').Select(line => line.Trim()).Where(line => !line.StartsWith("//")));
-
         var diffHtml = GenerateSideBySideDiffHtml(originalText, mergedText, conflict.FileName, conflict.ConflictWith.Select(cw => cw.PakName).ToList());
 
         return (new PakFileWithContent
@@ -165,7 +163,8 @@ public class PakMerger : IDisposable
             PakName = "merged",
             FileName = Path.GetFileName(conflict.FilePath),
             FilePath = conflict.FilePath,
-            Content = Encoding.UTF8.GetBytes(mergedText)
+            Content = Encoding.UTF8.GetBytes(mergedText),
+            OriginalContent = Encoding.UTF8.GetBytes(originalText)
         }, (conflict.FileName, diffHtml));
     }
 

@@ -14,6 +14,7 @@ public class Program
         var gamePath = "";
         string? aesKey = null;
         var skipReport = false;
+        var unpack = false;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -35,7 +36,9 @@ public class Program
                 case "--skipreport":
                     skipReport = true;
                     break;
-
+                case "--unpack":
+                    unpack = true;
+                    break;
                 default:
                     if (string.IsNullOrEmpty(gamePath))
                     {
@@ -60,18 +63,20 @@ public class Program
 
         try
         {
-            await Execute(gamePath, aesKey, skipReport);
+            await Execute(gamePath, aesKey, skipReport, unpack);
         }
         catch (Exception e)
         {
             Console.WriteLine("Unexpected error occurred:");
             Console.WriteLine(e.Message);
             Console.WriteLine();
+            Console.WriteLine(e.StackTrace);
+            Console.WriteLine();
             PressAnyKeyToExit();
         }
     }
 
-    private static async Task Execute(string gamePath, string? aesKey, bool skipReport = false)
+    private static async Task Execute(string gamePath, string? aesKey, bool skipReport, bool unpack)
     {
         if (string.IsNullOrEmpty(gamePath) || !Directory.Exists(gamePath))
         {
@@ -175,15 +180,13 @@ public class Program
             oldMergedPakFile.Delete();
         }
 
-        if (DebugTools.Debug.IsDebug && DebugTools.Debug.ExportToFolder)
+        if (unpack)
         {
-            await DebugTools.Debug.ExportMergeToFolder(mergedPakName, Path.Combine(gamePath, paksDirectory, ModsDirectoryName, "merged"), mergedPakFiles);
+            await DebugTools.Debug.ExportMergeToFolder(Path.Combine(gamePath, paksDirectory, ModsDirectoryName, "merged"), mergedPakFiles);
         }
-        else
-        {
-            var pakCreator = new NetPakCreator();
-            pakCreator.CreatePak(Constants.MergedPakBaseName, mergedPakPath, mergedPakFiles);
-        }
+
+        var pakCreator = new NetPakCreator();
+        pakCreator.CreatePak(Constants.MergedPakBaseName, mergedPakPath, mergedPakFiles);
 
         Console.WriteLine($"Merge pak created: {mergedPakName}\n\n");
 
