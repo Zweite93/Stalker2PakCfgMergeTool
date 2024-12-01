@@ -99,7 +99,7 @@ public class DeserializationFileMerger : IFileMerger
         }
 
         var deletedStructsCopy = deletedStructs.Select(configItem => new ConfigStructItem(((ConfigStructItem)configItem).Key, ((ConfigStructItem)configItem).Id, [], ((ConfigStructItem)configItem).Suffix) { OperationType = OperationType.Deleted }).ToList();
-        var deletedStringsCopy = deletedStrings.Select(configItem => new ConfigStringItem(((ConfigStringItem)configItem).Key, ((ConfigStructItem)configItem).Id, null) { OperationType = OperationType.Deleted }).ToList();
+        var deletedStringsCopy = deletedStrings.Select(configItem => new ConfigStringItem(((ConfigStringItem)configItem).Key, ((ConfigStringItem)configItem).Id, null) { OperationType = OperationType.Deleted }).ToList();
 
         changesHistory.AddRange(deletedStructsCopy);
         changesHistory.AddRange(deletedStringsCopy);
