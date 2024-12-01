@@ -99,7 +99,8 @@ public class Program
 
         if (aesKey == null)
         {
-            Console.WriteLine("Could not find valid AES key. You can try getting your oun AES key and passing it as a second argument after game root path.");
+            Console.WriteLine("Could not find valid AES key. Please find provide AES key as an argument.\n");
+            Console.WriteLine("EXAMPLE: --aes your_aes_key");
             PressAnyKeyToExit();
             return;
         }
@@ -265,22 +266,7 @@ public class Program
             return defaultAecKey;
         }
 
-        Console.WriteLine("Default AES key is invalid. Trying to grab AES key from game's executable.\n");
-
-        aesKey = AesKeyGetter.Get(Path.Combine(gamePath, exeFilePath));
-
-        if (string.IsNullOrEmpty(aesKey))
-        {
-            Console.WriteLine("AES key not found in game's executable.\n");
-            return null;
-        }
-
-        if (await Cue4PakProvider.TestAesKey(aesKey, Path.Combine(gamePath, paksDirectory)))
-        {
-            return aesKey;
-        }
-
-        Console.WriteLine("AES key from game's executable is invalid.\n");
+        Console.WriteLine("Default AES key is invalid.\n");
 
         return null;
     }
