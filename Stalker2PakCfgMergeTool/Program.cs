@@ -11,12 +11,58 @@ public class Program
 
     public static async Task Main(string[] args)
     {
-        var gamePath = args.FirstOrDefault() ?? "";
-        var aesKey = args.Skip(1).FirstOrDefault();
+        string gamePath = "";
+        string? aesKey = null;
+        bool skipReport = false;
+
+
+
+        for (int i = 0; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--aes":
+                    if (i + 1 < args.Length)
+                    {
+                        aesKey = args[i + 1];
+                        i++;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Error: Missing value for --aes option.");
+                        PressAnyKeyToExit();
+                        return;
+                    }
+                    break;
+                case "--skipreport":
+                    skipReport = true;
+                    break;
+
+                default:
+                    if (string.IsNullOrEmpty(gamePath))
+                    {
+                        gamePath = args[i];
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Error: Unknown argument '{args[i]}'.");
+                        PressAnyKeyToExit();
+                        return;
+                    }
+                    break;
+            }
+        }
+
+        if (string.IsNullOrEmpty(gamePath))
+        {
+            Console.WriteLine("Error: Missing required game path argument.");
+            PressAnyKeyToExit();
+            return;
+        }
 
         try
         {
-            await Execute(gamePath, aesKey);
+            await Execute(gamePath, aesKey, skipReport);
         }
         catch (Exception e)
         {
@@ -27,7 +73,7 @@ public class Program
         }
     }
 
-    private static async Task Execute(string gamePath, string? aesKey)
+    private static async Task Execute(string gamePath, string? aesKey, bool skipReport = false)
     {
         if (string.IsNullOrEmpty(gamePath) || !Directory.Exists(gamePath))
         {
@@ -114,6 +160,13 @@ public class Program
         var mergedPakName = $"{filePrefix}_{Constants.MergedPakBaseName}_{currentDate}_P.pak";
         var mergedPakPath = Path.Combine(gamePath, paksDirectory, ModsDirectoryName, mergedPakName);
 
+        //cleanup old merged pak files
+        var oldMergedPakFiles = dirInfo.GetFiles($"{filePrefix}_{Constants.MergedPakBaseName}_*.pak");
+        foreach (var oldMergedPakFile in oldMergedPakFiles)
+        {
+            oldMergedPakFile.Delete();
+        }
+
         if (Debug.IsDebug && Debug.ExportToFolder)
         {
             await Debug.ExportMergeToFolder(mergedPakName, Path.Combine(gamePath, paksDirectory, ModsDirectoryName, "merged"), mergedPakFiles);
@@ -126,17 +179,20 @@ public class Program
 
         Console.WriteLine($"Merge pak created: {mergedPakName}\n\n");
 
-        Console.WriteLine("Open up the Diff Viewer? [y/n]\n");
-
-        if (Console.ReadKey().KeyChar == 'y')
+        if (!skipReport)
         {
-            var summaryFilePath = Path.Combine(Directory.GetCurrentDirectory(), "diff.html");
-            var processStartInfo = new ProcessStartInfo
+            Console.WriteLine("Open up the Diff Viewer? [y/n]\n");
+
+            if (Console.ReadKey().KeyChar == 'y')
             {
-                FileName = summaryFilePath,
-                UseShellExecute = true
-            };
-            Process.Start(processStartInfo);
+                var summaryFilePath = Path.Combine(Directory.GetCurrentDirectory(), "diff.html");
+                var processStartInfo = new ProcessStartInfo
+                {
+                    FileName = summaryFilePath,
+                    UseShellExecute = true
+                };
+                Process.Start(processStartInfo);
+            }
         }
     }
 
