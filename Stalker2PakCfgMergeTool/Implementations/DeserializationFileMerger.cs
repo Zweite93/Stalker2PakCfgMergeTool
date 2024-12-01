@@ -1,5 +1,6 @@
 ﻿using Stalker2PakCfgMergeTool.Entities;
 using Stalker2PakCfgMergeTool.Interfaces;
+using System.Collections.Generic;
 
 namespace Stalker2PakCfgMergeTool.Implementations;
 
@@ -7,152 +8,160 @@ public class DeserializationFileMerger : IFileMerger
 {
     public (string originalText, string mergedText) Merge(string originalText, List<string> modifiedTexts)
     {
-        var originalConfig = ConfigSerializer.Deserialize(originalText);
-        var modifiedConfigs = modifiedTexts.Select(ConfigSerializer.Deserialize).ToList();
-        var mergedConfig = new Config { Values = [] };
+        //var originalConfig = ConfigSerializer.Deserialize(originalText);
+        //var modifiedConfigs = modifiedTexts.Select(ConfigSerializer.Deserialize).ToList();
+        //var changesHistoryList = new List<Config>();
 
-        foreach (var modifiedConfig in modifiedConfigs)
-        {
-            if (modifiedConfig.Values.Count == 0)
-            {
-                continue;
-            }
+        //foreach (var modifiedConfig in modifiedConfigs)
+        //{
+        //    if (modifiedConfig.Values.Count == 0)
+        //    {
+        //        continue;
+        //    }
 
-            MergeConfigValues(originalConfig.Values, modifiedConfig.Values, mergedConfig.Values);
-        }
+        //    var changesHistory = new Config { Name = modifiedConfig.Name, PakName = Constants.MergedPakBaseName, Values = [] };
+        //    BuildChangesHistory(originalConfig.Values, modifiedConfig.Values, changesHistory.Values);
 
-        originalText = ConfigSerializer.Serialize(originalConfig);
-        var mergedText = ConfigSerializer.Serialize(mergedConfig);
+        //    changesHistoryList.Add(changesHistory);
+        //}
 
-        return (originalText, mergedText);
+        //originalText = ConfigSerializer.Serialize(originalConfig);
+        //var mergedText = ConfigSerializer.Serialize(changesHistory);
+
+        //return (originalText, mergedText);
+
+        throw new NotImplementedException();
     }
 
-    private static void MergeConfigValues(List<ConfigKeyValuePair<string, object?>> originalConfigValues, List<ConfigKeyValuePair<string, object?>> modifiedConfigValues, List<ConfigKeyValuePair<string, object?>> mergedConfigValues)
+    private static OperationType BuildChangesHistory(List<ConfigKeyValuePair<object?>> originalConfigValues, List<ConfigKeyValuePair<object?>> modifiedConfigValues, List<ConfigKeyValuePair<object?>> changesHistory)
     {
-
-        var modifiedKeys = new HashSet<string>(modifiedConfigValues.Select(v => v.Key));
-        foreach (var originalValue in originalConfigValues.Where(originalValue => originalValue.OperationType != OperationType.Deleted && !modifiedKeys.Contains(originalValue.Key)))
-        {
-            originalValue.OperationType = OperationType.Deleted;
-        }
+        var operationType = OperationType.Unchanged;
+        var keysInChangesHistory = new HashSet<string>();
 
         foreach (var modifiedValue in modifiedConfigValues)
         {
-            if (string.Equals(modifiedValue.Value, "ChemicalDamage"))
-            {
+            //if (string.Equals(modifiedValue.Key, "ActivateFeedbackRadius"))
+            //{
 
-            }
+            //}
 
+            OperationType mergeOperationTypeResult;
             switch (modifiedValue.Value)
             {
                 case ConfigStruct modifiedStruct:
-                    MergeConfigStruct(originalConfigValues, mergedConfigValues, modifiedValue, modifiedStruct);
-                    continue;
+                    mergeOperationTypeResult = MergeConfigStruct(originalConfigValues, changesHistory, modifiedStruct);
+                    keysInChangesHistory.Add(modifiedStruct.Id);
+                    break;
                 case string:
                 case null:
-                    MergeConfigKeyValuePair(originalConfigValues, mergedConfigValues, modifiedValue);
-                    continue;
+                    mergeOperationTypeResult = MergeConfigKeyValuePair(originalConfigValues, changesHistory, modifiedValue);
+                    keysInChangesHistory.Add(modifiedValue.Key);
+                    break;
                 default:
                     throw new Exception($"Unknown type: {modifiedValue.Value.GetType()}");
             }
+
+            if (mergeOperationTypeResult != OperationType.Unchanged)
+            {
+                operationType = OperationType.Modified;
+            }
         }
 
-        //return operationType;
+        // find deleted values
+        var deleted = originalConfigValues.Where(originalValue =>
+        (originalValue.Value is string or null && !keysInChangesHistory.Contains(originalValue.Key) ||
+        originalValue.Value is ConfigStruct modifiedStruct && keysInChangesHistory.Contains(modifiedStruct.Id)) &&
+        originalValue.OperationType != OperationType.Deleted)
+        .Select(originalValue => new ConfigKeyValuePair<object?>(originalValue.Key, null) { OperationType = OperationType.Deleted })
+        .ToList();
+
+        // ReSharper disable once InvertIf
+        if (deleted.Count > 0)
+        {
+            changesHistory.AddRange(deleted);
+            operationType = OperationType.Modified;
+        }
+
+        return operationType;
     }
 
-    private static void MergeConfigStruct(List<ConfigKeyValuePair<string, object?>> originalConfigValues, List<ConfigKeyValuePair<string, object?>> mergedConfigValues, ConfigKeyValuePair<string, object?> modifiedValue, ConfigStruct modifiedStruct)
-    {
-        var originalStruct = FindMatchingStruct(modifiedValue.Key, modifiedStruct, originalConfigValues);
-        var mergedStruct = FindMatchingStruct(modifiedValue.Key, modifiedStruct, mergedConfigValues);
-
-        //if (modifiedValue is { Key: "InteractionEffectPrototypeSIDs", Parent.Key: "ChemicalAnomaly" })
+    private static OperationType MergeConfigStruct(List<ConfigKeyValuePair<object?>> originalConfigValues, List<ConfigKeyValuePair<object?>> changesHistory, ConfigStruct modifiedStruct)
+    {        
+        //if (modifiedValue is { Key: "InteractionEffectPrototypeSIDs", Parent.Key: "ChemicalAnomaly" })   
         //{
-
         //}
 
-        if (originalStruct != null && mergedStruct != null)
+        var originalStruct = originalConfigValues.FirstOrDefault(kvp => kvp.Value is ConfigStruct originalConfigStruct && originalConfigStruct.Id == modifiedStruct.Id)?.Value as ConfigStruct;
+
+        if (originalStruct != null && changesHistory.FirstOrDefault(kvp => kvp.Value is ConfigStruct mergedConfigStruct && mergedConfigStruct.Id == modifiedStruct.Id)?.Value is ConfigStruct)
         {
-            MergeConfigValues(originalStruct.Values, modifiedStruct.Values, mergedStruct.Values);
-            return;
+            // this shouldn't happen in theory
+
+            //BuildChangesHistory(originalStruct.Values, modifiedStruct.Values, mergedStruct.Values);
+            throw new Exception("Unexpected state");
         }
 
         if (originalStruct != null)
         {
-            var newMergedStruct = new ConfigStruct(modifiedValue.Key, [], modifiedStruct.Suffix);
-            MergeConfigValues(originalStruct.Values, modifiedStruct.Values, newMergedStruct.Values);
-            var newMergedValue = new ConfigKeyValuePair<string, object?>(modifiedValue.Key, newMergedStruct);
+            var newMergedStruct = new ConfigStruct(modifiedStruct.Key, modifiedStruct.Id, modifiedStruct.Suffix);
+            var mergeOperationTypeResult = BuildChangesHistory(originalStruct.Value, modifiedStruct.Value, newMergedStruct.Value);
 
-            mergedConfigValues.Add(newMergedValue);
-            return;
+            // ReSharper disable once InvertIf
+            if (mergeOperationTypeResult != OperationType.Unchanged)
+            {
+                var newMergedValue = new ConfigKeyValuePair<object?>(modifiedStruct.Key, newMergedStruct);
+                changesHistory.Add(newMergedValue);
+            }
+
+            return mergeOperationTypeResult;
         }
 
-        modifiedValue.OperationType = OperationType.Added;
-        mergedConfigValues.Add(modifiedValue);
+        var mergedValue = new ConfigKeyValuePair<object?>(modifiedStruct.Key, modifiedStruct) { OperationType = OperationType.Added };
+        changesHistory.Add(mergedValue);
+
+        return OperationType.Added;
     }
 
-    private static void MergeConfigKeyValuePair(List<ConfigKeyValuePair<string, object?>> originalConfigValues, List<ConfigKeyValuePair<string, object?>> mergedConfigValues, ConfigKeyValuePair<string, object?> modifiedValue)
+    private static OperationType MergeConfigKeyValuePair(List<ConfigKeyValuePair<object?>> originalConfigValues, List<ConfigKeyValuePair<object?>> changesHistory, ConfigKeyValuePair<object?> modifiedValue)
     {
         var originalValue = originalConfigValues.FirstOrDefault(v => v.Key == modifiedValue.Key);
-        if (originalValue != null && originalValue.OperationType != OperationType.Unchanged)
-        {
-            return;
-        }
+        //if (originalValue != null && originalValue.OperationType != OperationType.Unchanged)
+        //{
+        //    return;
+        //}
 
-        var mergedValue = mergedConfigValues.FirstOrDefault(v => v.Key == modifiedValue.Key);
-        if (mergedValue != null && mergedValue.OperationType != OperationType.Unchanged)
-        {
-            return;
-        }
+        var mergedValue = changesHistory.FirstOrDefault(v => v.Key == modifiedValue.Key);
+        //if (mergedValue != null && mergedValue.OperationType != OperationType.Unchanged)
+        //{
+        //    return;
+        //}
 
-        var operationType = Equals(originalValue?.Value, modifiedValue.Value) ? OperationType.Unchanged : OperationType.Modified;
+        if (Equals(originalValue?.Value, modifiedValue.Value)) 
+        {
+            return OperationType.Unchanged;
+        }
 
         if (originalValue != null && mergedValue != null)
         {
-            mergedValue.Value = modifiedValue.Value;
-            mergedValue.OperationType = operationType;
-            originalValue.OperationType = operationType;
-            return;
+            // this shouldn't happen in theory
+
+            //mergedValue.Value = modifiedValue.Value;
+            //mergedValue.OperationType = operationType;
+            throw new Exception("Unexpected state");
         }
 
         if (originalValue != null)
         {
-            modifiedValue.OperationType = operationType;
-            modifiedValue.Value = modifiedValue.Value;
-            mergedConfigValues.Add(modifiedValue);
-            return;
+            var newMergedValue = new ConfigKeyValuePair<object?>(modifiedValue.Key, modifiedValue) { OperationType = OperationType.Modified };
+            changesHistory.Add(newMergedValue);
+
+            return OperationType.Modified;
         }
 
         modifiedValue.OperationType = OperationType.Added;
-        mergedConfigValues.Add(modifiedValue);
-        return;
-    }
 
-    private static ConfigStruct? FindMatchingStruct(string key, ConfigStruct configStruct, List<ConfigKeyValuePair<string, object?>> otherValues)
-    {
-        if (key.StartsWith('['))
-        {
-            var id = configStruct.FindId();
-            if (!string.IsNullOrEmpty(id))
-            {
-                var structById = otherValues.FirstOrDefault(v => v.Value is ConfigStruct s && Equals(s.FindId(), id));
-                if (structById != null)
-                {
-                    return (ConfigStruct)structById.Value!;
-                }
-            }
+        changesHistory.Add(modifiedValue);
 
-            var sid = configStruct.FindSid();
-            if (!string.IsNullOrEmpty(sid))
-            {
-                var structBySid = otherValues.FirstOrDefault(v => v.Value is ConfigStruct s && Equals(s.FindSid(), sid));
-                if (structBySid != null)
-                {
-                    return (ConfigStruct)structBySid.Value!;
-                }
-            }
-
-        }
-
-        return otherValues.FirstOrDefault(v => v.Key == key && v.Value is ConfigStruct)?.Value as ConfigStruct;
+        return OperationType.Added;
     }
 }

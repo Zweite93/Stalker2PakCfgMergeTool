@@ -85,12 +85,12 @@ public class Program
             return;
         }
 
-        //var serializerTester = new SerializerTest(new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName));
-        //var allEquals = await serializerTester.Test("Stalker2");
+        var serializerTester = new SerializerTest(new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName));
+        var allEquals = await serializerTester.Test("Stalker2");
 
-        //Console.WriteLine("All files are equal: " + allEquals + "\n");
+        Console.WriteLine("All files are equal: " + allEquals + "\n");
 
-        //return;
+        return;
 
 
         var pakMerger = new PakMerger(

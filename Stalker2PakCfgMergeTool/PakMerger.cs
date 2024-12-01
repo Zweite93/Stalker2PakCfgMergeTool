@@ -77,7 +77,7 @@ public class PakMerger : IDisposable
         var pakFiles = new List<PakFileWithContent>();
         var diffHtmlList = new List<(string fileName, string diffHtml)>();
 
-        foreach (var conflict in conflicts.OrderByDescending(c => c.FileName))
+        foreach (var conflict in conflicts)
         {
             try
             {

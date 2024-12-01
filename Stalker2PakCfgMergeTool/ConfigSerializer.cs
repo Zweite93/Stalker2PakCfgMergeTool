@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using System.Text.RegularExpressions;
 using Stalker2PakCfgMergeTool.Entities;
 
 namespace Stalker2PakCfgMergeTool;
@@ -22,15 +21,19 @@ public static class ConfigSerializer
 
         var config = new Config
         {
+            // TODO: Add name and pakName to Deserialize signature, set them here
+            Name = string.Empty,
+            PakName = string.Empty,
+
             Values = DeserializeLines(lines, ref index)
         };
 
         return config;
     }
 
-    private static List<ConfigKeyValuePair<string, object?>> DeserializeLines(List<string> lines, ref int index)
+    private static List<ConfigKeyValuePair<object?>> DeserializeLines(List<string> lines, ref int index)
     {
-        var result = new List<ConfigKeyValuePair<string, object?>>();
+        var result = new List<ConfigKeyValuePair<object?>>();
 
         while (index < lines.Count)
         {
@@ -51,7 +54,18 @@ public static class ConfigSerializer
                 index++;
 
                 var nested = DeserializeLines(lines, ref index);
-                var configStruct = new ConfigStruct(key, nested, suffix);
+
+                var id = string.Empty;
+                var sid = string.Empty;
+
+                // if struct is in array, find ID and SID for identification
+                if (key.StartsWith('['))
+                {
+                    id = nested.FirstOrDefault(kvp => string.Equals(kvp.Key, "ID", StringComparison.InvariantCulture))?.Value?.ToString() ?? string.Empty;
+                    sid = nested.FirstOrDefault(kvp => string.Equals(kvp.Key, "SID", StringComparison.InvariantCulture))?.Value?.ToString() ?? string.Empty;
+                }
+
+                var configStruct = new ConfigStruct(key, id, sid, nested, suffix);
 
 #if DEBUG
                 foreach (var item in nested)
@@ -59,7 +73,7 @@ public static class ConfigSerializer
                     item.Parent = configStruct;
                 }
 #endif
-                result.Add(new ConfigKeyValuePair<string, object?>(key, configStruct));
+                result.Add(new ConfigKeyValuePair<object?>(key, configStruct));
             }
             else
             {
@@ -70,12 +84,12 @@ public static class ConfigSerializer
                     var key = parts[0].Trim();
                     var value = parts[1].Trim();
 
-                    result.Add(new ConfigKeyValuePair<string, object?>(key, value));
+                    result.Add(new ConfigKeyValuePair<object?>(key, value));
                 }
                 else if (!string.IsNullOrWhiteSpace(line))
                 {
                     // Unknown line format, just add it as is
-                    result.Add(new ConfigKeyValuePair<string, object?>(line, null));
+                    result.Add(new ConfigKeyValuePair<object?>(line, null));
                 }
 
                 index++;
@@ -95,7 +109,7 @@ public static class ConfigSerializer
         return result;
     }
 
-    private static void SerializeLines(List<ConfigKeyValuePair<string, object?>> values, StringBuilder sb, int indentLevel)
+    private static void SerializeLines(List<ConfigKeyValuePair<object?>> values, StringBuilder sb, int indentLevel)
     {
         var indent = new string(' ', indentLevel * 3);
 
@@ -105,7 +119,7 @@ public static class ConfigSerializer
             {
                 case ConfigStruct configStruct:
                     sb.AppendLine($"{indent}{item.Key} : {StructBegin} {configStruct.Suffix}".TrimEnd());
-                    SerializeLines(configStruct.Values, sb, indentLevel + 1);
+                    SerializeLines(configStruct.Value, sb, indentLevel + 1);
                     sb.AppendLine(indent + StructEnd);
                     break;
                 case string:

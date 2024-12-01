@@ -16,11 +16,19 @@ internal static class Debug
 
     public static List<string> Paks = [];
 
-    public static Dictionary<string, string> FolderPaks = [];
+    public static Dictionary<string, string> FolderPaks = new()
+    {
+        ["test"] = "D:\\Games\\Steam Games\\steamapps\\common\\S.T.A.L.K.E.R. 2 Heart of Chornobyl\\Stalker2\\Content\\Paks\\~mods\\test",
+        ["test2"] = "D:\\Games\\Steam Games\\steamapps\\common\\S.T.A.L.K.E.R. 2 Heart of Chornobyl\\Stalker2\\Content\\Paks\\~mods\\test2",
+        //["test3"] = "D:\\Games\\Steam Games\\steamapps\\common\\S.T.A.L.K.E.R. 2 Heart of Chornobyl\\Stalker2\\Content\\Paks\\~mods\\test3",
+        //["test4"] = "D:\\Games\\Steam Games\\steamapps\\common\\S.T.A.L.K.E.R. 2 Heart of Chornobyl\\Stalker2\\Content\\Paks\\~mods\\test4",
+        //["test5"] = "D:\\Games\\Steam Games\\steamapps\\common\\S.T.A.L.K.E.R. 2 Heart of Chornobyl\\Stalker2\\Content\\Paks\\~mods\\test5",
+        //["test6"] = "D:\\Games\\Steam Games\\steamapps\\common\\S.T.A.L.K.E.R. 2 Heart of Chornobyl\\Stalker2\\Content\\Paks\\~mods\\test6"
+    };
 
-    public static bool ExportToFolder = false;
+    public static bool ExportToFolder = true;
 
-    public static bool MergeWithoutConflict = false;
+    public static bool MergeWithoutConflict = true;
 
     public static async Task ExportMergeToFolder(string folderName, string path, List<PakFileWithContent> pakFiles)
     {

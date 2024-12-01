@@ -1,29 +1,33 @@
 ﻿namespace Stalker2PakCfgMergeTool.Entities;
 
-public class ConfigStruct
+public class ConfigStruct : ConfigValueBase<List<ConfigKeyValuePair<object?>>>
 {
 #if DEBUG
     public ConfigStruct? Parent { get; set; }
 #endif
 
-    public string Key { get; set; }
-    public string Suffix { get; }
-    public List<ConfigKeyValuePair<string, object?>> Values { get; }
+    /// <summary>
+    /// Unique identifier of the config struct. It is a combination of Key, ID and SID.
+    /// Reason for this is that some configs structs use array index as their key, and we need to identify them somehow.
+    /// EXAMPLE: 
+    /// </summary>
+    public string Id { get; }
 
-    public ConfigStruct(string key, List<ConfigKeyValuePair<string, object?>> values, string suffix = "")
+    /// <summary>
+    /// Some structs have additional parameters that are declared after struct.begin. 
+    /// EXAMPLE: "Bolt : struct.begin {refkey=Empty}"
+    /// </summary>
+    public string Suffix { get; }
+
+    public ConfigStruct(string key, string id, string sid, List<ConfigKeyValuePair<object?>> value, string suffix = "") : base(key, value)
     {
-        Key = key;
-        Values = values;
+        Id = Key + id + sid;
         Suffix = suffix;
     }
 
-    public string? FindId()
+    public ConfigStruct(string key, string id, string suffix = "") : base(key, [])
     {
-        return (string?)Values.FirstOrDefault(kvp => kvp.Key == "ID")?.Value;
-    }
-
-    public string? FindSid()
-    {
-        return (string?)Values.FirstOrDefault(kvp => kvp.Key == "SID")?.Value;
+        Id = id;
+        Suffix = suffix;
     }
 }
