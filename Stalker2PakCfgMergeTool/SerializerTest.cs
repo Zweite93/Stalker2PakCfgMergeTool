@@ -47,7 +47,7 @@ public class SerializerTest
             var textToCompare = string.Join("\n", lines);
 
 
-            var obj = ConfigSerializer.Deserialize(textToParse);
+            var obj = ConfigSerializer.Deserialize(Path.GetFileName(fileKey), "original", textToParse);
             var result = ConfigSerializer.Serialize(obj);
 
             var equal = result.Trim() == textToCompare.Trim();

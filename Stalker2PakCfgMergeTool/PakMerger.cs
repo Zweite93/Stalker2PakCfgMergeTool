@@ -143,16 +143,16 @@ public class PakMerger : IDisposable
             originalText = await _pakProvider.LoadPakFile(conflict.FilePath, conflict.ConflictWith[0].PakName);
         }
 
-        var modifiedTexts = new List<string>();
+        var modifiedTexts = new List<(string pakName, string modifiedText)>();
         foreach (var pakFile in conflict.ConflictWith)
         {
-            var modifiedText = Debug.IsDebug && Debug.FolderPaks.Count > 0
+            var modifiedText = (pakFile.PakName, Debug.IsDebug && Debug.FolderPaks.Count > 0
                 ? await File.ReadAllTextAsync(Path.Combine(Debug.FolderPaks[pakFile.PakName], pakFile.FilePath))
-                : await _pakProvider.LoadPakFile(pakFile.FilePath, pakFile.PakName);
+                : await _pakProvider.LoadPakFile(pakFile.FilePath, pakFile.PakName));
             modifiedTexts.Add(modifiedText);
         }
 
-        (originalText, var mergedText) = _fileMerger.Merge(originalText, modifiedTexts);
+        (originalText, var mergedText) = _fileMerger.Merge(originalText, conflict.FileName, modifiedTexts);
 
         Console.WriteLine("Merged\n");
 
