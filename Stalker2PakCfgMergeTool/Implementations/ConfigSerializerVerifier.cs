@@ -4,7 +4,7 @@ using Stalker2PakCfgMergeTool.Entities;
 
 namespace Stalker2PakCfgMergeTool.Implementations;
 
-public class ConfigSerializerVerifier : IConfigSerializerVerifier
+public partial class ConfigSerializerVerifier : IConfigSerializerVerifier
 {
     private readonly IConfigSerializer _configSerializer;
 
@@ -60,14 +60,23 @@ public class ConfigSerializerVerifier : IConfigSerializerVerifier
     private static string NormalizeLine(string input)
     {
         input = input.Trim().Replace("  ", " ");
-        input = new List<char> { ':', '=' }.Aggregate(input, (current, separator) => Regex.Replace(current, $@"\s*{separator}\s*", $" {separator} "));
+        input = NormalizeSeparatorsRegex().Replace(input, " $1 ");
 
         // Normalize whitespace around '{' and '}'
-        input = Regex.Replace(input, @"\s*{\s*", " { ");
-        input = Regex.Replace(input, @"\s*}\s*", " } ");
+        input = NormalizeCurlyBracesRegex().Replace(input, " { ");
+        input = NormalizeCurlyBracesCloseRegex().Replace(input, " } ");
 
         return input;
     }
+
+    [GeneratedRegex(@"\s*([:=])\s*")]
+    private static partial Regex NormalizeSeparatorsRegex();
+
+    [GeneratedRegex(@"\s*{\s*")]
+    private static partial Regex NormalizeCurlyBracesRegex();
+
+    [GeneratedRegex(@"\s*}\s*")]
+    private static partial Regex NormalizeCurlyBracesCloseRegex();
 }
 
 public class VerificationResult

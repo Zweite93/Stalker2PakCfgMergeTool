@@ -1,9 +1,10 @@
 ﻿using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Stalker2PakCfgMergeTool.Implementations;
 
 namespace Stalker2PakCfgMergeTool;
 
-public class Program
+public partial class Program
 {
     private const string PaksDirectory = "Stalker2/Content/Paks";
     private const string ModsDirectoryName = "~mods";
@@ -143,39 +144,15 @@ public class Program
             return;
         }
 
-        var filePrefix = "zzz";
-
         var dirInfo = new DirectoryInfo(modsPath);
-
-        var lastModPakFileName = dirInfo.GetFiles("*.pak")
-            .Select(f => f.Name)
-            .Where(name => !name.Contains(Constants.MergedPakBaseName))
-            .Order()
-            .LastOrDefault()?
-            .ToLower();
-
-        var lastModFolderName = dirInfo.GetDirectories()
-            .Select(di => di.Name)
-            .Where(name => !name.Contains(Constants.MergedPakBaseName))
-            .Order()
-            .LastOrDefault()?
-            .ToLower();
-
-        if (!string.IsNullOrEmpty(lastModPakFileName) || !string.IsNullOrEmpty(lastModFolderName))
-        {
-            var fileZCount = lastModPakFileName?.TakeWhile(c => c == 'z').Count();
-            var folderZCount = lastModFolderName?.TakeWhile(c => c == 'z').Count();
-            var zCount = Math.Max(fileZCount ?? 0, folderZCount ?? 0);
-
-            filePrefix = new string('z', zCount + 1);
-        }
+        var loadPriority = GetLoadPriority(dirInfo);
 
         var currentDate = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-        var mergedPakName = $"{filePrefix}_{Constants.MergedPakBaseName}_{currentDate}_P.pak";
+        var mergedPakName = $"_{Constants.MergedPakBaseName}_loadPriority_{loadPriority}_P.pak";
         var mergedPakPath = Path.Combine(gamePath, paksDirectory, ModsDirectoryName, mergedPakName);
 
         //cleanup old merged pak files
-        var oldMergedPakFiles = dirInfo.GetFiles($"{filePrefix}_{Constants.MergedPakBaseName}_*.pak");
+        var oldMergedPakFiles = dirInfo.GetFiles($"_{Constants.MergedPakBaseName}_*.pak");
         foreach (var oldMergedPakFile in oldMergedPakFiles)
         {
             oldMergedPakFile.Delete();
@@ -271,9 +248,34 @@ public class Program
         return null;
     }
 
+    // games load priority is defined by this format: modName_{loadPriority}_P.pak
+    private static int GetLoadPriority(DirectoryInfo dirInfo)
+    {
+        // find all files and directories in the mods folder
+        var fileNames = dirInfo.GetFiles().Where(f => f.Name.EndsWith(".pak") && !f.Name.Contains(Constants.MergedPakBaseName)).Select(f => f.Name.Replace(".pak", string.Empty));
+        var directoryNames = dirInfo.GetDirectories().Select(d => d.Name);
+        var modNames = fileNames.Concat(directoryNames).ToList();
+
+        var loadPriority = 100;
+        var regex = LoadPriorityRegex();
+        foreach (var modName in modNames)
+        {
+            var match = regex.Match(modName);
+            if (match.Success && int.TryParse(match.Groups[1].Value, out var modLoadPriority) && modLoadPriority >= loadPriority)
+            {
+                loadPriority = (modLoadPriority / 10 + 1) * 10;
+            }
+        }
+
+        return loadPriority;
+    }
+
     private static void PressAnyKeyToExit()
     {
         Console.WriteLine("Press any key to exit...");
         Console.ReadKey();
     }
+
+    [GeneratedRegex(@"_(\d+)_P$")]
+    private static partial Regex LoadPriorityRegex();
 }
