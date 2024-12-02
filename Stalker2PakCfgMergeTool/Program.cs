@@ -119,10 +119,17 @@ public partial class Program
 
 #if DEBUG
         // TODO: make a unit test out if it
-        //var serializerTester = new SerializerTest(new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName), new ConfigSerializer(), new ConfigSerializerVerifier(new ConfigSerializer()));
-        //var allEquals = await serializerTester.Test("Stalker2");
+        //var configSerializer = new ConfigSerializer();
+        //var configSerializerVerifier = new ConfigSerializerVerifier(configSerializer);
+        //var configMerger = new DeserializationFileMerger(configSerializer, configSerializerVerifier);
+        //var configMergerVerifier = new ConfigMergerVerifier(configSerializer, configMerger);
+        //var pakProvider = new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName);
+        //var serializerTester = new SerializerTest(pakProvider, configSerializer, configSerializerVerifier, configMergerVerifier);
 
-        //Console.WriteLine("All files are equal: " + allEquals + "\n");
+        ////var result = await serializerTester.Test("Stalker2");
+        //var result = await serializerTester.TestMerger("Stalker2");
+
+        //Console.WriteLine("All files are equal: " + result.allEquals + "\n");
 
         //return;
 #endif
