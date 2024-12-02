@@ -93,10 +93,9 @@ public partial class Program
             gamePath = Path.Combine(gamePath, "Content");
         }
 
-        var exeFilePath = GetExeFilePath(gamePath);
         var paksDirectory = Path.Combine(gamePath, PaksDirectory);
 
-        aesKey = await GetValidAesKey(aesKey, exeFilePath, gamePath, paksDirectory);
+        aesKey = await GetValidAesKey(aesKey, gamePath, paksDirectory);
 
         if (aesKey == null)
         {
@@ -185,37 +184,6 @@ public partial class Program
         }
     }
 
-    private static string GetExeFilePath(string path)
-    {
-        path = Path.Combine(path, "Stalker2/Binaries");
-
-        // some users reported that they have both Win64 and WinGDK folders, find exe file in either one
-        var exeFile = FindExe("Win64") ?? FindExe("WinGDK") ?? throw new Exception($"The game executable file not found. Provided binaries folder: {path}");
-
-        return exeFile;
-
-        string? FindExe(string winVersion)
-        {
-            var shippingExe = $"Stalker2-{winVersion}-Shipping.exe";
-            var editorExe = $"Stalker2-{winVersion}-Editor.exe";
-
-            var shippingExePath = Path.Combine(path, winVersion, shippingExe);
-            var editorExePath = Path.Combine(path, winVersion, editorExe);
-
-            if (File.Exists(shippingExePath))
-            {
-                return shippingExePath;
-            }
-
-            if (File.Exists(editorExePath))
-            {
-                return editorExePath;
-            }
-
-            return null;
-        }
-    }
-
     private static void ShowInvalidPathMessage()
     {
         Console.WriteLine("The game executable file not found in the provided path.");
@@ -224,7 +192,7 @@ public partial class Program
         PressAnyKeyToExit();
     }
 
-    private static async Task<string?> GetValidAesKey(string? aesKey, string exeFilePath, string gamePath, string paksDirectory)
+    private static async Task<string?> GetValidAesKey(string? aesKey, string gamePath, string paksDirectory)
     {
         const string defaultAecKey = "33A604DF49A07FFD4A4C919962161F5C35A134D37EFA98DB37A34F6450D7D386";
 
