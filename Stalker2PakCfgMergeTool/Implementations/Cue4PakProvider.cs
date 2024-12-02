@@ -5,34 +5,42 @@ using CUE4Parse.FileProvider.Objects;
 using CUE4Parse.UE4.Objects.Core.Misc;
 using CUE4Parse.UE4.Versions;
 using Stalker2PakCfgMergeTool.Entities;
+using Stalker2PakCfgMergeTool.Enums;
 using Stalker2PakCfgMergeTool.Interfaces;
 
 namespace Stalker2PakCfgMergeTool.Implementations;
 
 public class Cue4PakProvider : IPakProvider
 {
-    private readonly DefaultFileProvider _provider;
-    private readonly string? _pakName;
+    private const string OriginalPakPrefix = "pakchunk0-";
 
-    public Cue4PakProvider(string pakDir, string aesKey, string? pakName = null)
+    private readonly DefaultFileProvider _originalPaksProvider;
+    private readonly DefaultFileProvider _modPaksProvider;
+
+    public Cue4PakProvider(string originalPaksDir, string modPaksDir, string aesKey)
     {
-        _pakName = pakName;
-        _provider = new DefaultFileProvider(pakDir, pakName == null ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly, false, new VersionContainer(EGame.GAME_UE5_1));
-        _provider.Initialize();
-        _provider.SubmitKey(new FGuid(), new FAesKey(aesKey));
+        _originalPaksProvider = new DefaultFileProvider(originalPaksDir, SearchOption.TopDirectoryOnly, false, new VersionContainer(EGame.GAME_UE5_1));
+        _originalPaksProvider.Initialize();
+        _originalPaksProvider.SubmitKey(new FGuid(), new FAesKey(aesKey));
+
+        _modPaksProvider = new DefaultFileProvider(modPaksDir, SearchOption.AllDirectories, false, new VersionContainer(EGame.GAME_UE5_1));
+        _modPaksProvider.Initialize();
+        _modPaksProvider.SubmitKey(new FGuid(), new FAesKey(aesKey));
     }
 
-    public List<Pak> GetPaksInfo()
+    public List<Pak> GetPaksInfo(PakSearchOption pakSearchOption)
     {
+        var pakProvider = pakSearchOption == PakSearchOption.OriginalPaks ? _originalPaksProvider : _modPaksProvider;
+
         var paks = new List<Pak>();
-        foreach (var mountedVfs in _provider.MountedVfs)
+        foreach (var mountedVfs in pakProvider.MountedVfs)
         {
             if (mountedVfs.Name.Contains(Constants.MergedPakBaseName))
             {
                 continue;
             }
 
-            if (_pakName != null && mountedVfs.Name != _pakName)
+            if (pakSearchOption == PakSearchOption.OriginalPaks && (!mountedVfs.Name.StartsWith(OriginalPakPrefix) || !mountedVfs.Name.EndsWith(".pak")))
             {
                 continue;
             }
@@ -55,7 +63,7 @@ public class Cue4PakProvider : IPakProvider
 
             paks.Add(pak);
 
-            if (_pakName != null)
+            if (pakSearchOption == PakSearchOption.OriginalPaks)
             {
                 break;
             }
@@ -64,57 +72,59 @@ public class Cue4PakProvider : IPakProvider
         return paks;
     }
 
-    public async Task<string> LoadPakFile(string pakFilePath, string? pakName)
+    public async Task<string> LoadPakFile(string pakFilePath, PakSearchOption pakSearchOption, string? pakName = null)
     {
-        byte[] bytes;
-        if (pakName == null)
+
+        if (pakSearchOption == PakSearchOption.OriginalPaks)
         {
-            bytes = await ReadFile(pakFilePath, _provider.MountedVfs.First(mv => mv.Name == _pakName).Files, _pakName);
+            var files = _originalPaksProvider.MountedVfs.FirstOrDefault(mv => mv.Name.StartsWith(OriginalPakPrefix) && mv.Name.EndsWith(".pak"))?.Files ?? new Dictionary<string, GameFile>();
+
+            if (files.Count == 0)
+            {
+                throw new Exception("No original paks found.");
+            }
+
+            var text = await LoadPakFile(pakFilePath, files);
+
+            if (text != null)
+            {
+                return text;
+            }
+
+            // original cfg file is most likely in pakchunk0-Windows.pak or pakchunk0-WinGDK.pak, but if it's not, find it in any mounted pak
+            var otherOriginalPakFiles = _originalPaksProvider.MountedVfs.Where(mv => !mv.Name.StartsWith(OriginalPakPrefix) && mv.Name.EndsWith(".pak")).SelectMany(mv => mv.Files).ToDictionary();
+            text = await LoadPakFile(pakFilePath, otherOriginalPakFiles);
+
+            if (text != null)
+            {
+                return text;
+            }
+
+            throw new Exception($"File '{pakFilePath}' not found in original paks.");
         }
         else
         {
-            bytes = await ReadFile(pakFilePath, _provider.MountedVfs.First(mv => mv.Name == pakName).Files);
+            if (string.IsNullOrEmpty(pakName))
+            {
+                throw new Exception("Pak name must be provided when searching in mod paks.");
+            }
+
+            var files = _modPaksProvider.MountedVfs.FirstOrDefault(mv => mv.Name == pakName)?.Files ?? new Dictionary<string, GameFile>();
+
+            if (files.Count == 0)
+            {
+                throw new Exception($"No mod paks found with name '{pakName}'.");
+            }
+
+            var text = await LoadPakFile(pakFilePath, files);
+
+            if (text != null)
+            {
+                return text;
+            }
+
+            throw new Exception($"File '{pakFilePath}' not found in mod paks with name '{pakName}'.");
         }
-
-        var text = Encoding.UTF8.GetString(bytes);
-
-        // Remove BOM if present
-        if (text.Length > 0 && text[0] == '\uFEFF')
-        {
-            return text[1..];
-        }
-
-        return text;
-    }
-
-    public void Dispose()
-    {
-        _provider.UnloadAllVfs();
-        _provider.Dispose();
-    }
-
-    private async Task<byte[]> ReadFile(string pakFilePath, IReadOnlyDictionary<string, GameFile> files, string? pakName = null)
-    {
-        if (files.TryGetValue(pakFilePath, out var gameFile))
-        {
-            return await gameFile.ReadAsync();
-        }
-
-        // if not found in mod paks, throw exception, something is wrong
-        if (pakName == null)
-        {
-            throw new FileNotFoundException($"File {pakFilePath} not found in {pakName}");
-        }
-
-        // original cfg file is most likely in pakchunk0-Windows.pak, but if it's not, find it in any mounted pak
-        _provider.Files.TryGetValue(pakFilePath, out gameFile);
-
-        if (gameFile == null)
-        {
-            throw new FileNotFoundException($"File {pakFilePath} not found in any mounted pak");
-        }
-
-        return await gameFile.ReadAsync();
     }
 
     public static async Task<bool> TestAesKey(string aesKey, string pakDir)
@@ -128,5 +138,31 @@ public class Cue4PakProvider : IPakProvider
         testKeyIsValid = provider.MountedVfs.Count > 0;
 
         return testKeyIsValid;
+    }
+
+    public void Dispose()
+    {
+        _modPaksProvider.UnloadAllVfs();
+        _modPaksProvider.Dispose();
+    }
+
+    private static async Task<string?> LoadPakFile(string pakFilePath, IReadOnlyDictionary<string, GameFile> files)
+    {
+        if (files.Count < 0 || !files.TryGetValue(pakFilePath, out var gameFile))
+        {
+            return null;
+        }
+
+        var bytes = await gameFile.ReadAsync();
+
+        var text = Encoding.UTF8.GetString(bytes);
+
+        // Remove BOM if present
+        if (text.Length > 0 && text[0] == '\uFEFF')
+        {
+            return text[1..];
+        }
+
+        return text;
     }
 }

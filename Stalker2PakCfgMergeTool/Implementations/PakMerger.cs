@@ -4,6 +4,7 @@ using DiffPlex.DiffBuilder;
 using DiffPlex;
 using Stalker2PakCfgMergeTool.Entities;
 using Stalker2PakCfgMergeTool.Interfaces;
+using Stalker2PakCfgMergeTool.Enums;
 
 namespace Stalker2PakCfgMergeTool.Implementations;
 
@@ -12,19 +13,17 @@ public class PakMerger : IDisposable
     private const string DiffHtmlFileName = "diff.html";
 
     private readonly IPakProvider _pakProvider;
-    private readonly IPakProvider _referencePakProvider;
     private readonly IFileMerger _fileMerger;
 
-    public PakMerger(IPakProvider pakProvider, IPakProvider referencePakProvider, IFileMerger fileMerger)
+    public PakMerger(IPakProvider pakProvider, IFileMerger fileMerger)
     {
         _pakProvider = pakProvider;
-        _referencePakProvider = referencePakProvider;
         _fileMerger = fileMerger;
     }
 
     public async Task<List<PakFileWithContent>> MergePaksWithConflicts()
     {
-        var paks = _pakProvider.GetPaksInfo();
+        var paks = _pakProvider.GetPaksInfo(PakSearchOption.ModPaks);
         var conflicts = DebugTools.Debug.IsDebug
             ? FindConflictsForDebug(paks)
             : FindConflicts(paks);
@@ -115,7 +114,6 @@ public class PakMerger : IDisposable
     public void Dispose()
     {
         _pakProvider.Dispose();
-        _referencePakProvider.Dispose();
     }
 
     private async Task<(PakFileWithContent pak, (string fileName, string diffHtlm))> MergePakWithConflicts(FileConflict conflict)
@@ -135,12 +133,12 @@ public class PakMerger : IDisposable
         string originalText;
         try
         {
-            originalText = await _referencePakProvider.LoadPakFile(conflict.FilePath);
+            originalText = await _pakProvider.LoadPakFile(conflict.FilePath, PakSearchOption.OriginalPaks);
         }
         catch (Exception e)
         {
             Console.WriteLine($"Error loading original file {conflict.FilePath}: {e.Message}.\nUsing first modified file as original instead.\n");
-            originalText = await _pakProvider.LoadPakFile(conflict.FilePath, conflict.ConflictWith[0].PakName);
+            originalText = await _pakProvider.LoadPakFile(conflict.FilePath, PakSearchOption.ModPaks, conflict.ConflictWith[0].PakName);
         }
 
         var modifiedTexts = new List<(string pakName, string modifiedText)>();
@@ -148,7 +146,7 @@ public class PakMerger : IDisposable
         {
             var modifiedText = (pakFile.PakName, DebugTools.Debug.IsDebug && DebugTools.Debug.FolderPaks.Count > 0
                 ? await File.ReadAllTextAsync(Path.Combine(DebugTools.Debug.FolderPaks[pakFile.PakName], pakFile.FilePath))
-                : await _pakProvider.LoadPakFile(pakFile.FilePath, pakFile.PakName));
+                : await _pakProvider.LoadPakFile(pakFile.FilePath, PakSearchOption.ModPaks, pakFile.PakName));
             modifiedTexts.Add(modifiedText);
         }
 

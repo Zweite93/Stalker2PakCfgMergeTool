@@ -8,7 +8,6 @@ public partial class Program
 {
     private const string PaksDirectory = "Stalker2/Content/Paks";
     private const string ModsDirectoryName = "~mods";
-    private const string ReferencePakName = "pakchunk0-Windows.pak";
 
     public static async Task Main(string[] args)
     {
@@ -117,13 +116,15 @@ public partial class Program
             return;
         }
 
+        var originalPaksDir = Path.Combine(gamePath, paksDirectory);
+
 #if DEBUG
         // TODO: make a unit test out if it
         //var configSerializer = new ConfigSerializer();
         //var configSerializerVerifier = new ConfigSerializerVerifier(configSerializer);
         //var configMerger = new DeserializationFileMerger(configSerializer, configSerializerVerifier);
         //var configMergerVerifier = new ConfigMergerVerifier(configSerializer, configMerger);
-        //var pakProvider = new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName);
+        //var pakProvider = new Cue4PakProvider(originalPaksDir, originalPaksDir, aesKey);
         //var serializerTester = new SerializerTest(pakProvider, configSerializer, configSerializerVerifier, configMergerVerifier);
 
         ////var result = await serializerTester.Test("Stalker2");
@@ -135,8 +136,7 @@ public partial class Program
 #endif
 
         var pakMerger = new PakMerger(
-            new Cue4PakProvider(modsPath, aesKey),
-            new Cue4PakProvider(Path.Combine(gamePath, paksDirectory), aesKey, ReferencePakName),
+            new Cue4PakProvider(originalPaksDir, modsPath, aesKey),
             new DeserializationFileMerger(new ConfigSerializer(), new ConfigSerializerVerifier(new ConfigSerializer())));
 
         var mergedPakFiles = await pakMerger.MergePaksWithConflicts();
@@ -153,7 +153,6 @@ public partial class Program
         var dirInfo = new DirectoryInfo(modsPath);
         var loadPriority = GetLoadPriority(dirInfo);
 
-        var currentDate = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
         var mergedPakName = $"_{Constants.MergedPakBaseName}_loadPriority_{loadPriority}_P.pak";
         var mergedPakPath = Path.Combine(gamePath, paksDirectory, ModsDirectoryName, mergedPakName);
 

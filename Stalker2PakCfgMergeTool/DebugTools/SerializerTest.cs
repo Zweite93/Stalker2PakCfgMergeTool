@@ -1,6 +1,7 @@
 ﻿#if DEBUG
 
 using Stalker2PakCfgMergeTool.Entities;
+using Stalker2PakCfgMergeTool.Enums;
 using Stalker2PakCfgMergeTool.Implementations;
 using Stalker2PakCfgMergeTool.Interfaces;
 
@@ -63,7 +64,7 @@ public class SerializerTest
 
     private async Task<(Pak pak, List<(string fileKey, string text)>)> LoadAllFilesInParallel(string pakSubfolderPath, int? numberOfFilesToTest = null)
     {
-        var pak = _provider.GetPaksInfo().First();
+        var pak = _provider.GetPaksInfo(PakSearchOption.OriginalPaks).First();
 
         var configFiles = pak.PakFileKeys.Where(key => key.StartsWith(pakSubfolderPath) && key.EndsWith(".cfg") && !DirsToSkip.Contains(Path.GetDirectoryName(key)!) && !FilesToSkip.Contains(Path.GetFileName(key)));
 
@@ -74,7 +75,7 @@ public class SerializerTest
 
         var tasks = configFiles.Select(async key =>
         {
-            var text = await _provider.LoadPakFile(key);
+            var text = await _provider.LoadPakFile(key, PakSearchOption.OriginalPaks);
             return (key, text);
         });
 
