@@ -27,7 +27,7 @@ public class ConfigSerializer : IConfigSerializer
             configText = configText[1..];
         }
 
-        var lines = configText.Split('\n').Select(line => line.Trim()).Where(line => !line.StartsWith("//")).ToList();
+        var lines = configText.Split('\n').Select(line => line.Trim()).Where(line => !line.StartsWith("//") && !string.IsNullOrWhiteSpace(line)).ToList();
         var index = 0;
 
         var config = new Config
