@@ -32,19 +32,19 @@ public class ConfigSerializer : IConfigSerializer
 
         var config = new Config
         {
-            // TODO: Add name and pakName to Deserialize signature, set them here
             Name = fileName,
             PakName = pakName,
 
-            Values = DeserializeLines(lines, ref index, fileName, pakName)
+            Values = DeserializeLines(lines, ref index)
         };
 
         return config;
     }
 
-    private static List<ConfigItem<object>> DeserializeLines(List<string> lines, ref int index, string fileName, string pakName)
+    private static List<ConfigItem<object>> DeserializeLines(List<string> lines, ref int index)
     {
         var result = new List<ConfigItem<object>>();
+        int? arrayIndex = null;
 
         while (index < lines.Count)
         {
@@ -55,6 +55,17 @@ public class ConfigSerializer : IConfigSerializer
                 break;
             }
 
+            // if it's an array item, need to use key + array index as and identifier
+            // this is a workaround for stacks ("[*]") and arrays with duplicate indexes
+            if (line.StartsWith('['))
+            {
+                arrayIndex = arrayIndex.HasValue ? arrayIndex + 1 : 0;
+            }
+            else
+            {
+                arrayIndex = null;
+            }
+
             if (line.Contains(StructBegin))
             {
                 var parts = line.Split(':', 2);
@@ -62,42 +73,12 @@ public class ConfigSerializer : IConfigSerializer
                 var key = parts[0].Trim();
                 var suffix = parts[1].Replace(StructBegin, string.Empty).Trim();
 
+
                 index++;
 
-                var nested = DeserializeLines(lines, ref index, fileName, pakName);
+                var nested = DeserializeLines(lines, ref index);
 
-                string id;
-
-                // if struct is in array, find ID and SID for identification
-                if (key.StartsWith('['))
-                {
-                    id = nested.FirstOrDefault(kvp => string.Equals(kvp.Key, "ID", StringComparison.InvariantCultureIgnoreCase) && kvp.Value is ConfigStringItem)?.Value?.ToString() ??
-                        // If ID is not available, try finding SID (string ID I presume)
-                        nested.FirstOrDefault(kvp => string.Equals(kvp.Key, "SID", StringComparison.InvariantCultureIgnoreCase) && kvp.Value is ConfigStringItem)?.Value?.ToString() ??
-                        // if SID is not available, try finding words that contains are ending with ID or IDs, this will include SID as well. Need to be case-sensitive to avoid matching with other words.
-                        nested.FirstOrDefault(kvp => kvp.Key.EndsWith("ID", StringComparison.InvariantCulture) || kvp.Key.EndsWith("IDs", StringComparison.InvariantCulture) && kvp.Value is ConfigStringItem)?.Value?.ToString() ??
-                        // If everything fails, use key as ID. Could cause problems if this struct is used when merging.
-                        key;
-
-                    // these are special because there is no way to identify them, not even by index. I need to have SOMETHING for identification, so I'm using the first nested value.
-                    if (key == "[*]")
-                    {
-                        var firstNested = nested.FirstOrDefault();
-                        id = (firstNested as ConfigStringItem)?.Value ?? string.Empty;
-
-                        if (string.IsNullOrWhiteSpace(id))
-                        {
-                            Console.WriteLine($"{fileName} | {pakName} | Line {index + 1}: No nested values found for [*] struct. This file is not supported, merge at your own risk.");
-                            id = key;
-                        }
-                    }
-                }
-                else
-                {
-                    id = key;
-                }
-
-                var configStruct = new ConfigStructItem(key, id, nested, suffix);
+                var configStruct = new ConfigStructItem(key, key + arrayIndex, nested, suffix);
 
 #if DEBUG
                 foreach (var item in nested)
@@ -116,24 +97,7 @@ public class ConfigSerializer : IConfigSerializer
                     var key = parts[0].Trim();
                     var value = parts[1].Trim();
 
-                    string id;
-
-                    // yes this shit again
-                    if (key == "[*]")
-                    {
-                        if (string.IsNullOrWhiteSpace(value))
-                        {
-                            Console.WriteLine($"{fileName} | {pakName} | Line {index + 1}: No nested values found for [*] struct. This file is not supported, merge at your own risk.");
-                        }
-
-                        id = key + value;
-                    }
-                    else
-                    {
-                        id = key;
-                    }
-
-                    result.Add(new ConfigStringItem(key, id, value));
+                    result.Add(new ConfigStringItem(key, key + arrayIndex, value));
                 }
                 else if (!string.IsNullOrWhiteSpace(line))
                 {
@@ -167,7 +131,7 @@ public class ConfigSerializer : IConfigSerializer
                     break;
                 default:
                     var type = item.GetType();
-                    throw new Exception("Unexpected item type");
+                    throw new Exception($"Unexpected item type: {type}");
             }
         }
     }
