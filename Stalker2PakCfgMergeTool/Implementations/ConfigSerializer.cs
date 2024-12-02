@@ -71,11 +71,11 @@ public class ConfigSerializer : IConfigSerializer
                 // if struct is in array, find ID and SID for identification
                 if (key.StartsWith('['))
                 {
-                    id = nested.FirstOrDefault(kvp => string.Equals(kvp.Key, "ID", StringComparison.InvariantCultureIgnoreCase))?.Value?.ToString() ??
+                    id = nested.FirstOrDefault(kvp => string.Equals(kvp.Key, "ID", StringComparison.InvariantCultureIgnoreCase) && kvp.Value is ConfigStringItem)?.Value?.ToString() ??
                         // If ID is not available, try finding SID (string ID I presume)
-                        nested.FirstOrDefault(kvp => string.Equals(kvp.Key, "SID", StringComparison.InvariantCultureIgnoreCase))?.Value?.ToString() ??
+                        nested.FirstOrDefault(kvp => string.Equals(kvp.Key, "SID", StringComparison.InvariantCultureIgnoreCase) && kvp.Value is ConfigStringItem)?.Value?.ToString() ??
                         // if SID is not available, try finding words that contains are ending with ID or IDs, this will include SID as well. Need to be case-sensitive to avoid matching with other words.
-                        nested.FirstOrDefault(kvp => kvp.Key.EndsWith("ID", StringComparison.InvariantCulture) || kvp.Key.EndsWith("IDs", StringComparison.InvariantCulture))?.Value?.ToString() ??
+                        nested.FirstOrDefault(kvp => kvp.Key.EndsWith("ID", StringComparison.InvariantCulture) || kvp.Key.EndsWith("IDs", StringComparison.InvariantCulture) && kvp.Value is ConfigStringItem)?.Value?.ToString() ??
                         // If everything fails, use key as ID. Could cause problems if this struct is used when merging.
                         key;
 
