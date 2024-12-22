@@ -15,6 +15,12 @@ public partial class ConfigSerializerVerifier : IConfigSerializerVerifier
 
     public VerificationResult Verify(Config config, string configText)
     {
+        // Remove BOM if present
+        if (configText.Length > 0 && configText[0] == '\uFEFF')
+        {
+            configText = configText[1..];
+        }
+
         var verificationResult = new VerificationResult { Success = true };
 
         configText = NormalizeText(configText);
