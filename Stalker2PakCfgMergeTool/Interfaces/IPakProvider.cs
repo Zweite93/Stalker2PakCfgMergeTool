@@ -7,5 +7,5 @@ public interface IPakProvider : IDisposable
 {
     List<Pak> GetPaksInfo(PakSearchOption pakSearchOption);
 
-    Task<string> LoadPakFile(string pakFilePath, PakSearchOption pakSearchOption, string? pakName = null);
+    Task<string?> LoadPakFile(string pakFilePath, PakSearchOption pakSearchOption, string? pakName = null);
 }

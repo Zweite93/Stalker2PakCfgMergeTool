@@ -130,15 +130,23 @@ public class PakMerger : IDisposable
 
         Console.WriteLine();
 
-        string originalText;
+        string? originalText = null;
         try
         {
             originalText = await _pakProvider.LoadPakFile(conflict.FilePath, PakSearchOption.OriginalPaks);
+
+            if (originalText == null)
+            {
+                Console.WriteLine($"Original file {conflict.FilePath} not found.\nThis can happen when mod adds new configuration file.\nUsing first modified file as original instead.\n");
+            }
         }
         catch (Exception e)
         {
             Console.WriteLine($"Error loading original file {conflict.FilePath}: {e.Message}.\nUsing first modified file as original instead.\n");
-            originalText = await _pakProvider.LoadPakFile(conflict.FilePath, PakSearchOption.ModPaks, conflict.ConflictWith[0].PakName);
+        }
+        finally
+        {
+            originalText ??= await _pakProvider.LoadPakFile(conflict.FilePath, PakSearchOption.ModPaks, conflict.ConflictWith[0].PakName);
         }
 
         var modifiedTexts = new List<(string pakName, string modifiedText)>();

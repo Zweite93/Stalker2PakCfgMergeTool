@@ -72,7 +72,7 @@ public class Cue4PakProvider : IPakProvider
         return paks;
     }
 
-    public async Task<string> LoadPakFile(string pakFilePath, PakSearchOption pakSearchOption, string? pakName = null)
+    public async Task<string?> LoadPakFile(string pakFilePath, PakSearchOption pakSearchOption, string? pakName = null)
     {
 
         if (pakSearchOption == PakSearchOption.OriginalPaks)
@@ -92,15 +92,10 @@ public class Cue4PakProvider : IPakProvider
             }
 
             // original cfg file is most likely in pakchunk0-Windows.pak or pakchunk0-WinGDK.pak, but if it's not, find it in any mounted pak
-            var otherOriginalPakFiles = _originalPaksProvider.MountedVfs.Where(mv => !mv.Name.StartsWith(OriginalPakPrefix) && mv.Name.EndsWith(".pak")).SelectMany(mv => mv.Files).ToDictionary();
+            var otherOriginalPakFiles = _originalPaksProvider.MountedVfs.Where(mv => !mv.Name.StartsWith(OriginalPakPrefix) && mv.Name.EndsWith(".pak")).SelectMany(mv => mv.Files).Where(f => f.Key.EndsWith(".cfg")).ToDictionary();
             text = await LoadPakFile(pakFilePath, otherOriginalPakFiles);
 
-            if (text != null)
-            {
-                return text;
-            }
-
-            throw new Exception($"File '{pakFilePath}' not found in original paks.");
+            return text;
         }
         else
         {
