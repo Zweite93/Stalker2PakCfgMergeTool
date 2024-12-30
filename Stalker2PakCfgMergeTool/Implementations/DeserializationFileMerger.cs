@@ -61,7 +61,7 @@ public class DeserializationFileMerger : IFileMerger
         }
     }
 
-    private static OperationType BuildChangesHistory(List<ConfigItem<object>> originalConfigValues, List<ConfigItem<object>> modifiedConfigValues, List<ConfigItem<object>> changesHistory)
+    private static OperationType BuildChangesHistory(List<ConfigItem> originalConfigValues, List<ConfigItem> modifiedConfigValues, List<ConfigItem> changesHistory)
     {
         var operationType = OperationType.Unchanged;
         var keysInModifiedConfig = new HashSet<string>();
@@ -98,7 +98,7 @@ public class DeserializationFileMerger : IFileMerger
             operationType = OperationType.Modified;
         }
 
-        var deletedStructsCopy = deletedStructs.Select(configItem => new ConfigStructItem(((ConfigStructItem)configItem).Key, ((ConfigStructItem)configItem).Id, [], ((ConfigStructItem)configItem).Suffix) { OperationType = OperationType.Deleted }).ToList();
+        var deletedStructsCopy = deletedStructs.Select(configItem => new ConfigStructItem(((ConfigStructItem)configItem).Key, ((ConfigStructItem)configItem).Id, [], ((ConfigStructItem)configItem).RefInfo) { OperationType = OperationType.Deleted }).ToList();
         var deletedStringsCopy = deletedStrings.Select(configItem => new ConfigStringItem(((ConfigStringItem)configItem).Key, ((ConfigStringItem)configItem).Id, null) { OperationType = OperationType.Deleted }).ToList();
 
         changesHistory.AddRange(deletedStructsCopy);
@@ -107,12 +107,12 @@ public class DeserializationFileMerger : IFileMerger
         return operationType;
     }
 
-    private static OperationType MergeConfigStruct(List<ConfigItem<object>> originalConfigValues, List<ConfigItem<object>> changesHistory, ConfigStructItem modifiedStructItem)
+    private static OperationType MergeConfigStruct(List<ConfigItem> originalConfigValues, List<ConfigItem> changesHistory, ConfigStructItem modifiedStructItem)
     {
         // if struct is modified, build changes history for it
         if (originalConfigValues.FirstOrDefault(configItem => configItem is ConfigStructItem originalConfigStruct && originalConfigStruct.Id == modifiedStructItem.Id) is ConfigStructItem originalStruct)
         {
-            var newMergedStruct = new ConfigStructItem(modifiedStructItem.Key, modifiedStructItem.Id, [], modifiedStructItem.Suffix);
+            var newMergedStruct = new ConfigStructItem(modifiedStructItem.Key, modifiedStructItem.Id, [], modifiedStructItem.RefInfo);
             var mergeOperationTypeResult = BuildChangesHistory(originalStruct.Value, modifiedStructItem.Value, newMergedStruct.Value);
 
             // ReSharper disable once InvertIf
@@ -131,7 +131,7 @@ public class DeserializationFileMerger : IFileMerger
         return OperationType.Added;
     }
 
-    private static OperationType MergeConfigString(List<ConfigItem<object>> originalConfigValues, List<ConfigItem<object>> changesHistory, ConfigStringItem modifiedStringItem)
+    private static OperationType MergeConfigString(List<ConfigItem> originalConfigValues, List<ConfigItem> changesHistory, ConfigStringItem modifiedStringItem)
     {
         var originalValue = originalConfigValues.FirstOrDefault(configItem => configItem is ConfigStringItem && configItem.Key == modifiedStringItem.Key);
 
@@ -146,7 +146,7 @@ public class DeserializationFileMerger : IFileMerger
         return modifiedStringItem.OperationType;
     }
 
-    private static void ApplyChangesHistory(List<ConfigItem<object>> originalConfigValues, List<ConfigItem<object>> changesHistory)
+    private static void ApplyChangesHistory(List<ConfigItem> originalConfigValues, List<ConfigItem> changesHistory)
     {
         foreach (var change in changesHistory)
         {
@@ -164,7 +164,7 @@ public class DeserializationFileMerger : IFileMerger
         }
     }
 
-    private static void ApplyStructChange(List<ConfigItem<object>> originalValues, ConfigStructItem changeStruct)
+    private static void ApplyStructChange(List<ConfigItem> originalValues, ConfigStructItem changeStruct)
     {
         var originalStructIndex = originalValues
             .Select((configItem, index) => new { ConfigItem = configItem, Index = index })
@@ -193,7 +193,7 @@ public class DeserializationFileMerger : IFileMerger
         }
     }
 
-    private static void ApplyStringChange(List<ConfigItem<object>> originalConfigValues, ConfigStringItem changeString)
+    private static void ApplyStringChange(List<ConfigItem> originalConfigValues, ConfigStringItem changeString)
     {
         var originalStringIndex = originalConfigValues
             .Select((configItem, index) => new { ConfigItem = configItem, Index = index })

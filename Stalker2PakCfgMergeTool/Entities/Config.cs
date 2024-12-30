@@ -2,7 +2,7 @@
 
 namespace Stalker2PakCfgMergeTool.Entities;
 
-public abstract class ConfigItem<T> where T : class
+public abstract class ConfigItem
 {
     /// <summary>
     /// Unique identifier of the config struct. Can be an ID, SID, word that contain ID[s] or SID[s], a key, or a first nested key + value. Check Serialize method for more info.
@@ -18,7 +18,7 @@ public abstract class ConfigItem<T> where T : class
     public OperationType OperationType { get; set; } = OperationType.Unchanged;
 
     public string Key { get; }
-    public abstract T? Value { get; }
+    public abstract object? Value { get; }
 
     protected ConfigItem(string key, string id)
     {
@@ -27,7 +27,7 @@ public abstract class ConfigItem<T> where T : class
     }
 }
 
-public class ConfigStringItem : ConfigItem<object>
+public class ConfigStringItem : ConfigItem
 {
     public override string? Value {get;}
 
@@ -37,22 +37,25 @@ public class ConfigStringItem : ConfigItem<object>
     }
 }
 
-public class ConfigStructItem : ConfigItem<object>
+public class ConfigStructItem : ConfigItem
 {
 
-    /// <summary>
-    /// Some structs have additional parameters that are declared after struct.begin. 
-    /// EXAMPLE: "Bolt : struct.begin {refkey=Empty}"
-    /// </summary>
-    public string Suffix { get; }
+    public RefInfo? RefInfo { get; set; }
 
-    public override List<ConfigItem<object>> Value { get; }
+    public override List<ConfigItem> Value { get; }
 
-    public ConfigStructItem(string key, string id, List<ConfigItem<object>> values, string suffix = "") : base(key, id)
+    public ConfigStructItem(string key, string id, List<ConfigItem> values, RefInfo? refInfo = null) : base(key, id)
     {
+        RefInfo = refInfo;
         Value = values;
-        Suffix = suffix;
     }
+}
+
+public class RefInfo
+{
+    public string? RefKey { get; set; }
+    public string? RefUrl { get; set; }
+    public bool SkipRef { get; set; }
 }
 
 public class Config
@@ -60,11 +63,11 @@ public class Config
     public required string Name { get; set; }
     public required string PakName { get; set; }
 
-    public required List<ConfigItem<object>> Values { get; set; }
+    public required List<ConfigItem> Values { get; set; }
 
-    public static List<ConfigItem<object>> GetValuesByOperationType(List<ConfigItem<object>> values, OperationType operationType)
+    public static List<ConfigItem> GetValuesByOperationType(List<ConfigItem> values, OperationType operationType)
     {
-        var result = new List<ConfigItem<object>>();
+        var result = new List<ConfigItem>();
         foreach (var value in values)
         {
             switch (value.Value)
@@ -73,7 +76,7 @@ public class Config
                     var modifiedValues = GetValuesByOperationType(configStruct.Value, operationType);
                     if (modifiedValues.Count > 0)
                     {
-                        result.Add(new ConfigStructItem(configStruct.Key, configStruct.Id, modifiedValues, configStruct.Suffix));
+                        result.Add(new ConfigStructItem(configStruct.Key, configStruct.Id, modifiedValues, configStruct.RefInfo));
                     }
                     break;
                 default:

@@ -1,6 +1,7 @@
 ﻿using Stalker2PakCfgMergeTool.Interfaces;
 using System.Text.RegularExpressions;
 using Stalker2PakCfgMergeTool.Entities;
+using Stalker2PakCfgMergeTool.Extensions;
 
 namespace Stalker2PakCfgMergeTool.Implementations;
 
@@ -15,15 +16,9 @@ public partial class ConfigSerializerVerifier : IConfigSerializerVerifier
 
     public VerificationResult Verify(Config config, string configText)
     {
-        // Remove BOM if present
-        if (configText.Length > 0 && configText[0] == '\uFEFF')
-        {
-            configText = configText[1..];
-        }
-
         var verificationResult = new VerificationResult { Success = true };
 
-        configText = NormalizeText(configText);
+        configText = NormalizeText(configText.RemoveBom());
         var serializedText = _configSerializer.Serialize(config);
 
         if (string.Equals(configText.Trim(), serializedText.Trim()))
@@ -59,9 +54,14 @@ public partial class ConfigSerializerVerifier : IConfigSerializerVerifier
     private static string NormalizeText(string text)
     {
         var lines = text.Split("\n").ToArray();
-        lines = lines.Where(l => !l.TrimStart().StartsWith("//") && !string.IsNullOrWhiteSpace(l)).Select(l => l.Replace("\t", "   ")).ToArray();
+        lines = lines
+            .Where(l => !l.TrimStart().StartsWith("//") && !string.IsNullOrWhiteSpace(l))
+            .Select(l => l.RemoveComments().Replace("\t", "   "))
+            .ToArray();
+
         return string.Join("\n", lines);
     }
+
 
     private static string NormalizeLine(string input)
     {

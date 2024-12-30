@@ -6,6 +6,7 @@ using CUE4Parse.UE4.Objects.Core.Misc;
 using CUE4Parse.UE4.Versions;
 using Stalker2PakCfgMergeTool.Entities;
 using Stalker2PakCfgMergeTool.Enums;
+using Stalker2PakCfgMergeTool.Extensions;
 using Stalker2PakCfgMergeTool.Interfaces;
 
 namespace Stalker2PakCfgMergeTool.Implementations;
@@ -149,14 +150,7 @@ public class Cue4PakProvider : IPakProvider
         }
 
         var bytes = await gameFile.ReadAsync();
-
-        var text = Encoding.UTF8.GetString(bytes);
-
-        // Remove BOM if present
-        if (text.Length > 0 && text[0] == '\uFEFF')
-        {
-            return text[1..];
-        }
+        var text = Encoding.UTF8.GetString(bytes).RemoveBom();
 
         return text;
     }
